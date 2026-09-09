@@ -14,6 +14,7 @@ import {
 import { isCamSodaUrl, parseCamSodaListing } from '@/lib/camsoda';
 import { isCam4Url, parseCam4Listing } from '@/lib/cam4';
 import { isMyFreeCamsUrl, parseMyFreeCamsListing } from '@/lib/myfreecams';
+import { isYoutubeUrl, parseYoutubeVideos } from '@/lib/youtubeSource';
 import { extractVideoChannels, isDirectMediaUrl, normalizeSourceUrl, sourceCategoryName } from '@/lib/sourceDiscovery';
 import type { DiscoveredChannel } from '@/lib/sourceDiscovery';
 import { assertPublicRemoteUrl, fetchPublicText } from '@/lib/safeRemoteFetch';
@@ -57,6 +58,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               ? await discoverCam4(sourceUrl)
               : isMyFreeCamsUrl(sourceUrl)
                 ? await discoverMyFreeCams(sourceUrl)
+                : isYoutubeUrl(sourceUrl)
+                  ? await discoverYoutube(sourceUrl)
                 : await discoverGeneric(sourceUrl);
     const { channels, finalUrl } = discovered;
     if (!channels.length) return res.status(422).json({ error: 'no_videos_found' });
@@ -193,6 +196,12 @@ const discoverMyFreeCams = async (sourceUrl: URL): Promise<DiscoveryResult> => {
   const dedicated = parseMyFreeCamsListing(landing.text, landing.finalUrl);
   const generic = extractVideoChannels(landing.text, landing.finalUrl);
   return { channels: dedicated.length ? dedicated : generic, finalUrl: landing.finalUrl };
+};
+
+const discoverYoutube = async (sourceUrl: URL): Promise<DiscoveryResult> => {
+  const landing = await fetchPublicText(sourceUrl, { timeoutMs: 20_000, maxBytes: 8_000_000 });
+  const channels = parseYoutubeVideos(landing.text, landing.finalUrl);
+  return { channels: channels.length ? channels : extractVideoChannels(landing.text, landing.finalUrl), finalUrl: landing.finalUrl };
 };
 
 const tryChaturbateListing = async (sourceUrl: URL, setCookies: string[] = []): Promise<DiscoveredChannel[]> => {

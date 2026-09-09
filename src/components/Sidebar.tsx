@@ -8,7 +8,7 @@ import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, 
 import ReactPlayer from 'react-player';
 import { useEffect, useState } from 'react';
 
-const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com', 'cam4.com', 'myfreecams.com'];
+const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com', 'cam4.com', 'myfreecams.com', 'youtube.com'];
 
 export const Sidebar = () => {
   const toast = useToast();
