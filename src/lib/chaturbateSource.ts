@@ -20,7 +20,7 @@ export const isChaturbateUrl = (url: URL): boolean => /(^|\.)chaturbate\.com$/i.
 export const buildChaturbateListingUrl = (sourceUrl: URL): URL => {
   const listingUrl = new URL('/api/ts/roomlist/room-list/', sourceUrl.origin);
   listingUrl.searchParams.set('enable_recommendations', 'false');
-  listingUrl.searchParams.set('limit', '200');
+  listingUrl.searchParams.set('limit', '90');
   listingUrl.searchParams.set('offset', '0');
 
   const gender = chaturbateGender(sourceUrl);
@@ -30,7 +30,11 @@ export const buildChaturbateListingUrl = (sourceUrl: URL): URL => {
 
 export const parseChaturbateListing = (payload: unknown, sourceUrl: URL): DiscoveredChannel[] => {
   if (!payload || typeof payload !== 'object') return [];
-  const rooms = (payload as ChaturbateListing).rooms;
+  const rooms = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as ChaturbateListing).rooms)
+      ? (payload as ChaturbateListing).rooms
+      : (payload as { data?: ChaturbateListing }).data?.rooms;
   if (!Array.isArray(rooms)) return [];
 
   const channels: DiscoveredChannel[] = [];

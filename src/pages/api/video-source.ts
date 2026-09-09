@@ -79,23 +79,31 @@ const discoverBongaCams = async (sourceUrl: URL): Promise<DiscoveryResult> => {
 };
 
 const tryBongaListing = async (sourceUrl: URL, setCookies: string[] = []): Promise<DiscoveredChannel[]> => {
-  try {
-    const cookie = requestCookieHeader(setCookies);
-    const listing = await fetchPublicText(buildBongaListingUrl(sourceUrl), {
-      maxBytes: 5_000_000,
-      timeoutMs: 25_000,
-      headers: {
-        accept: 'application/json, text/javascript, */*;q=0.1',
-        referer: `${sourceUrl.origin}/`,
-        'x-requested-with': 'XMLHttpRequest',
-        ...(cookie ? { cookie } : {}),
-      },
-    });
-    return parseBongaListing(JSON.parse(listing.text), sourceUrl);
-  } catch (error) {
-    console.warn('BongaCams listing request failed', error instanceof Error ? error.message : error);
-    return [];
+  const preferredTab = sourceUrl.pathname.split('/').filter(Boolean)[0]?.toLowerCase();
+  const tabs = ['all', 'female', 'male', 'couples', 'transsexual'];
+  if (tabs.includes(preferredTab)) tabs.unshift(tabs.splice(tabs.indexOf(preferredTab), 1)[0]);
+  const cookie = requestCookieHeader(setCookies);
+
+  for (const tab of tabs) {
+    try {
+      const listing = await fetchPublicText(buildBongaListingUrl(sourceUrl, tab), {
+        maxBytes: 5_000_000,
+        timeoutMs: 25_000,
+        headers: {
+          accept: 'application/json, text/javascript, */*;q=0.1',
+          referer: `${sourceUrl.origin}/`,
+          'x-requested-with': 'XMLHttpRequest',
+          ...(cookie ? { cookie } : {}),
+        },
+      });
+      const channels = parseBongaListing(JSON.parse(listing.text), sourceUrl);
+      if (channels.length) return channels;
+    } catch (error) {
+      console.warn(`BongaCams ${tab} listing request failed`, error instanceof Error ? error.message : error);
+    }
   }
+
+  return [];
 };
 
 const discoverChaturbate = async (sourceUrl: URL): Promise<DiscoveryResult> => {

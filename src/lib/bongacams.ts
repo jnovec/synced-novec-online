@@ -21,9 +21,9 @@ interface BongaListing {
 export const isBongaCamsUrl = (url: URL): boolean =>
   /(^|\.)bongacams\d*\.com$/i.test(url.hostname);
 
-export const buildBongaListingUrl = (sourceUrl: URL): URL => {
+export const buildBongaListingUrl = (sourceUrl: URL, liveTab?: string): URL => {
   const listingUrl = new URL('/tools/listing_v3.php', sourceUrl.origin);
-  listingUrl.searchParams.set('livetab', bongaLiveTab(sourceUrl));
+  listingUrl.searchParams.set('livetab', liveTab || bongaLiveTab(sourceUrl));
   listingUrl.searchParams.set('online_only', 'true');
   listingUrl.searchParams.set('offset', '0');
   listingUrl.searchParams.set('can_pin_models', 'false');
@@ -33,7 +33,11 @@ export const buildBongaListingUrl = (sourceUrl: URL): URL => {
 
 export const parseBongaListing = (payload: unknown, sourceUrl: URL): DiscoveredChannel[] => {
   if (!payload || typeof payload !== 'object') return [];
-  const models = (payload as BongaListing).models;
+  const models = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as BongaListing).models)
+      ? (payload as BongaListing).models
+      : (payload as { data?: BongaListing }).data?.models;
   if (!Array.isArray(models)) return [];
 
   const seen = new Set<string>();
