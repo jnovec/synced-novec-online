@@ -217,6 +217,14 @@ export const Sidebar = () => {
             <Text color="gray.500" fontSize="xs" mt="2">
               Nalezená videa se uloží do sekce pojmenované podle domény.
             </Text>
+            <Text color="gray.400" fontSize="xs" mt="2">
+              <Flex gap="1" flexWrap="wrap" alignItems="center">
+                <Text as="span">Podporované weby:</Text>
+                {supportedSourceWebsites.map((website) => (
+                  <Button key={website} size="xs" variant="link" color="blue.200" onClick={() => setSourceUrl(website)}>{website}</Button>
+                ))}
+              </Flex>
+            </Text>
           </Box>
 
           <Divider borderColor="whiteAlpha.300" />
