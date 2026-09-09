@@ -1,0 +1,26 @@
+import type { DiscoveredChannel } from './sourceDiscovery.ts';
+
+export const isMyFreeCamsUrl = (url: URL): boolean => /(^|\.)myfreecams\.com$/i.test(url.hostname);
+
+export const parseMyFreeCamsListing = (html: string, sourceUrl: URL): DiscoveredChannel[] => {
+  const channels: DiscoveredChannel[] = [];
+  const seen = new Set<string>();
+  const normalized = html.replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
+
+  for (const match of normalized.matchAll(/data-username\s*=\s*["']([^"']+)["']/gi)) {
+    const username = match[1].trim();
+    if (!/^[a-z0-9_.-]{1,80}$/i.test(username) || seen.has(username.toLowerCase())) continue;
+    const start = match.index ?? 0;
+    const context = normalized.slice(Math.max(0, start - 500), start + 1800);
+    const viewers = Number(context.match(/(\d[\d,.]*)\s*(?:viewers?|watching|users?)/i)?.[1]?.replace(/[,.]/g, '') ?? 0);
+    const label = context.match(/(?:data-name|aria-label|alt)\s*=\s*["']([^"']+)["']/i)?.[1]?.trim();
+    const imageValue = context.match(/(?:data-thumb-image|data-src|data-original|src)\s*=\s*["']([^"']+)["']/i)?.[1];
+    let logo = '';
+    if (imageValue && !/^(?:data|blob):/i.test(imageValue)) {
+      try { logo = new URL(imageValue.startsWith('//') ? `https:${imageValue}` : imageValue, sourceUrl).toString(); } catch { logo = ''; }
+    }
+    seen.add(username.toLowerCase());
+    channels.push({ name: label || username, location: `${Number.isFinite(viewers) ? viewers : 0} viewers · myfreecams.com`, url: new URL(`/${encodeURIComponent(username)}/`, sourceUrl.origin).toString(), logo, viewers: Number.isFinite(viewers) ? viewers : 0 });
+  }
+  return channels.sort((a, b) => (b.viewers ?? 0) - (a.viewers ?? 0));
+};
