@@ -12,6 +12,7 @@ import {
   parseStripchatListing,
 } from '@/lib/stripchat';
 import { isCamSodaUrl, parseCamSodaListing } from '@/lib/camsoda';
+import { isCam4Url, parseCam4Listing } from '@/lib/cam4';
 import { extractVideoChannels, isDirectMediaUrl, normalizeSourceUrl, sourceCategoryName } from '@/lib/sourceDiscovery';
 import type { DiscoveredChannel } from '@/lib/sourceDiscovery';
 import { assertPublicRemoteUrl, fetchPublicText } from '@/lib/safeRemoteFetch';
@@ -51,6 +52,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ? await discoverStripchat(sourceUrl)
           : isCamSodaUrl(sourceUrl)
             ? await discoverCamSoda(sourceUrl)
+            : isCam4Url(sourceUrl)
+              ? await discoverCam4(sourceUrl)
         : await discoverGeneric(sourceUrl);
     const { channels, finalUrl } = discovered;
     if (!channels.length) return res.status(422).json({ error: 'no_videos_found' });
@@ -173,6 +176,13 @@ const discoverCamSoda = async (sourceUrl: URL): Promise<DiscoveryResult> => {
     channels: dedicated.length ? dedicated : generic,
     finalUrl: landing.finalUrl,
   };
+};
+
+const discoverCam4 = async (sourceUrl: URL): Promise<DiscoveryResult> => {
+  const landing = await fetchPublicText(sourceUrl, { timeoutMs: 20_000, maxBytes: 5_000_000 });
+  const dedicated = parseCam4Listing(landing.text, landing.finalUrl);
+  const generic = extractVideoChannels(landing.text, landing.finalUrl);
+  return { channels: dedicated.length ? dedicated : generic, finalUrl: landing.finalUrl };
 };
 
 const tryChaturbateListing = async (sourceUrl: URL, setCookies: string[] = []): Promise<DiscoveredChannel[]> => {
