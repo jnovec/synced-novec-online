@@ -7,7 +7,12 @@ export const parseMyFreeCamsListing = (html: string, sourceUrl: URL): Discovered
   const seen = new Set<string>();
   const normalized = html.replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
 
-  for (const match of normalized.matchAll(/data-username\s*=\s*["']([^"']+)["']/gi)) {
+  const candidates = [
+    ...normalized.matchAll(/(?:data-username|data-room|data-model)\s*=\s*["']([^"']+)["']/gi),
+    ...normalized.matchAll(/href\s*=\s*["']\/(?:model|models|room|rooms|cam|cams)?\/?([a-z0-9_.-]{2,80})\/?(?:["'#?])/gi),
+  ];
+
+  for (const match of candidates) {
     const username = match[1].trim();
     if (!/^[a-z0-9_.-]{1,80}$/i.test(username) || seen.has(username.toLowerCase())) continue;
     const start = match.index ?? 0;
