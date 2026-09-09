@@ -16,6 +16,7 @@ import {
   parseChaturbateListing,
 } from './chaturbateSource.ts';
 import { parseCamSodaListing } from './camsoda.ts';
+import { parseMyFreeCamsListing } from './myfreecams.ts';
 import { isPublicIpAddress } from './safeRemoteFetch.ts';
 
 test('normalizes a bare domain and uses it as the category name', () => {
@@ -157,6 +158,19 @@ test('parses CamSoda live model cards', () => {
   assert.equal(channels[0].location, '123 viewers · camsoda.com');
   assert.equal(channels[0].url, 'https://www.camsoda.com/alice_cam/');
   assert.equal(channels[0].logo, 'https://img.example.com/alice.jpg');
+});
+
+test('parses rendered MyFreeCams model cards', () => {
+  const channels = parseMyFreeCamsListing(
+    `<div class="model_online modelbox_123456"><a title="Enter Chat Room of Alice"><img src="/alice.jpg"><span>9 viewers</span></a></div>`,
+    new URL('https://www.myfreecams.com/')
+  );
+
+  assert.equal(channels.length, 1);
+  assert.equal(channels[0].name, 'Alice');
+  assert.equal(channels[0].url, 'https://mfc.im/Alice/chat');
+  assert.equal(channels[0].viewers, 9);
+  assert.equal(channels[0].logo, 'https://www.myfreecams.com/alice.jpg');
 });
 
 test('rejects private and reserved addresses', () => {
