@@ -79,6 +79,7 @@ const discoverGeneric = async (sourceUrl: URL): Promise<DiscoveryResult> => {
 };
 
 const discoverBongaCams = async (sourceUrl: URL): Promise<DiscoveryResult> => {
+  sourceUrl = providerWebUrl(sourceUrl);
   const directChannels = await tryBongaListing(sourceUrl);
   if (directChannels.length) return { channels: directChannels, finalUrl: sourceUrl };
 
@@ -166,6 +167,7 @@ const discoverStripchat = async (sourceUrl: URL): Promise<DiscoveryResult> => {
 };
 
 const discoverCamSoda = async (sourceUrl: URL): Promise<DiscoveryResult> => {
+  sourceUrl = providerWebUrl(sourceUrl);
   const landing = await fetchPublicText(sourceUrl, { timeoutMs: 20_000, maxBytes: 5_000_000 });
   const dedicated = parseCamSodaListing(landing.text, landing.finalUrl);
   const generic = extractVideoChannels(landing.text, landing.finalUrl);
@@ -173,6 +175,14 @@ const discoverCamSoda = async (sourceUrl: URL): Promise<DiscoveryResult> => {
     channels: dedicated.length ? dedicated : generic,
     finalUrl: landing.finalUrl,
   };
+};
+
+const providerWebUrl = (sourceUrl: URL): URL => {
+  const canonical = new URL(sourceUrl);
+  if (canonical.hostname === 'bongacams.com' || canonical.hostname === 'camsoda.com') {
+    canonical.hostname = `www.${canonical.hostname}`;
+  }
+  return canonical;
 };
 
 const tryChaturbateListing = async (sourceUrl: URL, setCookies: string[] = []): Promise<DiscoveredChannel[]> => {
