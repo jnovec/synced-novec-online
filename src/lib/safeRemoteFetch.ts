@@ -10,6 +10,8 @@ interface SafeFetchOptions {
   maxBytes?: number;
   timeoutMs?: number;
   headers?: Record<string, string>;
+  method?: 'GET' | 'POST';
+  body?: string;
 }
 
 export interface SafeTextResponse {
@@ -32,6 +34,7 @@ export const fetchPublicText = async (rawUrl: string | URL, options: SafeFetchOp
     let response: Response;
     try {
       response = await fetch(currentUrl, {
+        method: options.method ?? 'GET',
         cache: 'no-store',
         redirect: 'manual',
         signal: controller.signal,
@@ -41,6 +44,7 @@ export const fetchPublicText = async (rawUrl: string | URL, options: SafeFetchOp
           'user-agent': 'Mozilla/5.0 (compatible; MultiScreen/1.0; +https://synced.novec.online)',
           ...options.headers,
         },
+        ...(options.body ? { body: options.body } : {}),
       });
     } finally {
       clearTimeout(timeout);

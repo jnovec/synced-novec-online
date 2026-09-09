@@ -4,6 +4,12 @@ import {
   isBongaCamsUrl,
   parseBongaRoomStream,
 } from '@/lib/bongacams';
+import {
+  buildStripchatRoomUrl,
+  extractStripchatUsername,
+  isStripchatUrl,
+  parseStripchatRoomStream,
+} from '@/lib/stripchat';
 import { extractEmbeddedMediaUrls, isDirectMediaUrl, normalizeSourceUrl } from '@/lib/sourceDiscovery';
 import { assertPublicRemoteUrl, fetchPublicText } from '@/lib/safeRemoteFetch';
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -36,6 +42,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           if (streamUrl) return res.status(200).json({ streamUrl });
         } catch (error) {
           console.warn('BongaCams stream lookup failed', error instanceof Error ? error.message : error);
+        }
+      }
+    }
+
+    if (isStripchatUrl(pageUrl)) {
+      const username = extractStripchatUsername(pageUrl);
+      if (username) {
+        try {
+          const room = await fetchPublicText(buildStripchatRoomUrl(pageUrl, username), {
+            maxBytes: 2_000_000,
+            timeoutMs: 20_000,
+            headers: {
+              accept: 'application/json',
+              referer: pageUrl.toString(),
+              'x-requested-with': 'XMLHttpRequest',
+            },
+          });
+          const streamUrl = parseStripchatRoomStream(JSON.parse(room.text));
+          if (streamUrl) return res.status(200).json({ streamUrl });
+        } catch (error) {
+          console.warn('Stripchat stream lookup failed', error instanceof Error ? error.message : error);
         }
       }
     }

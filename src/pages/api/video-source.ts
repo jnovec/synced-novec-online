@@ -4,6 +4,13 @@ import {
   isChaturbateUrl,
   parseChaturbateListing,
 } from '@/lib/chaturbateSource';
+import {
+  buildStripchatLegacyListingUrl,
+  buildStripchatListingBody,
+  buildStripchatListingUrl,
+  isStripchatUrl,
+  parseStripchatListing,
+} from '@/lib/stripchat';
 import { extractVideoChannels, isDirectMediaUrl, normalizeSourceUrl, sourceCategoryName } from '@/lib/sourceDiscovery';
 import type { DiscoveredChannel } from '@/lib/sourceDiscovery';
 import { assertPublicRemoteUrl, fetchPublicText } from '@/lib/safeRemoteFetch';
@@ -39,6 +46,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? await discoverBongaCams(sourceUrl)
       : isChaturbateUrl(sourceUrl)
         ? await discoverChaturbate(sourceUrl)
+        : isStripchatUrl(sourceUrl)
+          ? await discoverStripchat(sourceUrl)
         : await discoverGeneric(sourceUrl);
     const { channels, finalUrl } = discovered;
     if (!channels.length) return res.status(422).json({ error: 'no_videos_found' });
@@ -116,6 +125,41 @@ const discoverChaturbate = async (sourceUrl: URL): Promise<DiscoveryResult> => {
     channels: channels.length ? channels : extractVideoChannels(landing.text, landing.finalUrl),
     finalUrl: landing.finalUrl,
   };
+};
+
+const discoverStripchat = async (sourceUrl: URL): Promise<DiscoveryResult> => {
+  try {
+    const listing = await fetchPublicText(buildStripchatListingUrl(sourceUrl), {
+      method: 'POST',
+      body: buildStripchatListingBody(),
+      maxBytes: 5_000_000,
+      timeoutMs: 25_000,
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        origin: sourceUrl.origin,
+        referer: `${sourceUrl.origin}/`,
+        'x-requested-with': 'XMLHttpRequest',
+      },
+    });
+    const channels = parseStripchatListing(JSON.parse(listing.text), sourceUrl);
+    if (channels.length) return { channels, finalUrl: sourceUrl };
+  } catch (error) {
+    console.warn('Stripchat listing request failed', error instanceof Error ? error.message : error);
+  }
+
+  try {
+    const listing = await fetchPublicText(buildStripchatLegacyListingUrl(sourceUrl), {
+      maxBytes: 5_000_000,
+      timeoutMs: 25_000,
+      headers: { accept: 'application/json', referer: `${sourceUrl.origin}/`, 'x-requested-with': 'XMLHttpRequest' },
+    });
+    return { channels: parseStripchatListing(JSON.parse(listing.text), sourceUrl), finalUrl: sourceUrl };
+  } catch (error) {
+    console.warn('Stripchat legacy listing request failed', error instanceof Error ? error.message : error);
+    const landing = await fetchPublicText(sourceUrl, { timeoutMs: 20_000 });
+    return { channels: extractVideoChannels(landing.text, landing.finalUrl), finalUrl: landing.finalUrl };
+  }
 };
 
 const tryChaturbateListing = async (sourceUrl: URL, setCookies: string[] = []): Promise<DiscoveredChannel[]> => {
