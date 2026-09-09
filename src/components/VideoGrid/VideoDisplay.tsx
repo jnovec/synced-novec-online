@@ -552,6 +552,8 @@ export const VideoDisplay = ({
                 if (event.key === 'Enter') handleManualUrlSubmit();
               }}
               placeholder="https://example.com/live/stream"
+              color="#EEEEEC"
+              _placeholder={{ color: 'whiteAlpha.600' }}
               bg="black"
               borderColor="whiteAlpha.400"
             />

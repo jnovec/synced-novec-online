@@ -27,6 +27,7 @@ export const QuickPlayInput = ({ handleQuickPlaySubmit, setQuickPlayUrl }: Quick
           type="text"
           placeholder="https://youtube.com/12345"
           color="#EEEEEF"
+          _placeholder={{ color: 'whiteAlpha.600' }}
           onChange={(e) => setQuickPlayUrl(e.target.value)}
           pointerEvents="all"
         />

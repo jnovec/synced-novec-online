@@ -190,6 +190,8 @@ export const Sidebar = () => {
                   if (event.key === 'Enter') void handleSourceSubmit();
                 }}
                 placeholder="bongacams.com"
+                color="#EEEEEC"
+                _placeholder={{ color: 'whiteAlpha.600' }}
                 bg="black"
                 borderColor="whiteAlpha.400"
                 aria-label="URL webu se streamy"
