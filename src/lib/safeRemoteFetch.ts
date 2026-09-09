@@ -46,25 +46,42 @@ export const fetchPublicText = async (rawUrl: string | URL, options: SafeFetchOp
         },
         ...(options.body ? { body: options.body } : {}),
       });
-    } finally {
+    } catch (error) {
       clearTimeout(timeout);
+      throw error;
     }
 
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location');
-      if (!location) throw new Error(`source_http_${response.status}`);
-      if (redirects === MAX_REDIRECTS) throw new Error('too_many_redirects');
+      if (!location) {
+        clearTimeout(timeout);
+        throw new Error(`source_http_${response.status}`);
+      }
+      if (redirects === MAX_REDIRECTS) {
+        clearTimeout(timeout);
+        throw new Error('too_many_redirects');
+      }
+      clearTimeout(timeout);
       currentUrl = normalizeSourceUrl(new URL(location, currentUrl).toString());
       continue;
     }
 
-    if (!response.ok) throw new Error(`source_http_${response.status}`);
+    if (!response.ok) {
+      clearTimeout(timeout);
+      throw new Error(`source_http_${response.status}`);
+    }
 
     const declaredLength = Number(response.headers.get('content-length') ?? 0);
-    if (declaredLength > maxBytes) throw new Error('source_too_large');
+    if (declaredLength > maxBytes) {
+      clearTimeout(timeout);
+      throw new Error('source_too_large');
+    }
+
+    const text = await readLimitedText(response, maxBytes);
+    clearTimeout(timeout);
 
     return {
-      text: await readLimitedText(response, maxBytes),
+      text,
       finalUrl: currentUrl,
       contentType: response.headers.get('content-type') ?? '',
       setCookies: readSetCookies(response.headers),
