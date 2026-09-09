@@ -88,15 +88,20 @@ const discoverGeneric = async (sourceUrl: URL): Promise<DiscoveryResult> => {
 };
 
 const discoverBongaCams = async (sourceUrl: URL): Promise<DiscoveryResult> => {
-  const directChannels = await tryBongaListing(sourceUrl);
-  if (directChannels.length) return { channels: directChannels, finalUrl: sourceUrl };
+  // BongaCams currently renders public profile links directly into the landing HTML.
+  // Prefer that path first; the old listing_v3 endpoint is kept only as a fallback.
+  const landing = await fetchPublicText(sourceUrl, {
+    timeoutMs: 20_000,
+    maxBytes: 8_000_000,
+    headers: {
+      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+    },
+  });
+  const htmlChannels = extractVideoChannels(landing.text, landing.finalUrl);
+  if (htmlChannels.length) return { channels: htmlChannels, finalUrl: landing.finalUrl };
 
-  const landing = await fetchPublicText(sourceUrl, { timeoutMs: 20_000 });
-  const channels = await tryBongaListing(landing.finalUrl, landing.setCookies);
-  return {
-    channels: channels.length ? channels : extractVideoChannels(landing.text, landing.finalUrl),
-    finalUrl: landing.finalUrl,
-  };
+  const legacyChannels = await tryBongaListing(landing.finalUrl, landing.setCookies);
+  return { channels: legacyChannels, finalUrl: landing.finalUrl };
 };
 
 const tryBongaListing = async (sourceUrl: URL, setCookies: string[] = []): Promise<DiscoveredChannel[]> => {
