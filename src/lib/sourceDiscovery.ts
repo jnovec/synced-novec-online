@@ -4,6 +4,7 @@ export interface DiscoveredChannel {
   url: string;
   logo: string;
   playbackUrl?: string;
+  viewers?: number;
 }
 
 const MEDIA_EXTENSION = /\.(?:m3u8|mp4|webm|mpd|m4v|mov)(?:$|[?#])/i;

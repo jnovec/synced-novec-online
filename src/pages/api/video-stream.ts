@@ -1,3 +1,9 @@
+import {
+  buildBongaRoomDataUrl,
+  extractBongaUsername,
+  isBongaCamsUrl,
+  parseBongaRoomStream,
+} from '@/lib/bongacams';
 import { extractEmbeddedMediaUrls, isDirectMediaUrl, normalizeSourceUrl } from '@/lib/sourceDiscovery';
 import { assertPublicRemoteUrl, fetchPublicText } from '@/lib/safeRemoteFetch';
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -12,6 +18,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const pageUrl = normalizeSourceUrl(rawUrl);
     await assertPublicRemoteUrl(pageUrl);
     if (isDirectMediaUrl(pageUrl.toString())) return res.status(200).json({ streamUrl: pageUrl.toString() });
+
+    if (isBongaCamsUrl(pageUrl)) {
+      const username = extractBongaUsername(pageUrl);
+      if (username) {
+        try {
+          const roomData = await fetchPublicText(buildBongaRoomDataUrl(pageUrl, username), {
+            maxBytes: 2_000_000,
+            timeoutMs: 20_000,
+            headers: {
+              accept: 'application/json, text/javascript, */*;q=0.1',
+              referer: pageUrl.toString(),
+              'x-requested-with': 'XMLHttpRequest',
+            },
+          });
+          const streamUrl = parseBongaRoomStream(JSON.parse(roomData.text), username);
+          if (streamUrl) return res.status(200).json({ streamUrl });
+        } catch (error) {
+          console.warn('BongaCams stream lookup failed', error instanceof Error ? error.message : error);
+        }
+      }
+    }
 
     const fetched = await fetchPublicText(pageUrl, { maxBytes: 2_000_000 });
     const mediaUrls = extractEmbeddedMediaUrls(fetched.text, fetched.finalUrl);

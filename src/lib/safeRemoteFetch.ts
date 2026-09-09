@@ -9,12 +9,14 @@ const MAX_REDIRECTS = 5;
 interface SafeFetchOptions {
   maxBytes?: number;
   timeoutMs?: number;
+  headers?: Record<string, string>;
 }
 
 export interface SafeTextResponse {
   text: string;
   finalUrl: URL;
   contentType: string;
+  setCookies: string[];
 }
 
 export const fetchPublicText = async (rawUrl: string | URL, options: SafeFetchOptions = {}): Promise<SafeTextResponse> => {
@@ -37,6 +39,7 @@ export const fetchPublicText = async (rawUrl: string | URL, options: SafeFetchOp
           accept: 'text/html, application/xhtml+xml, application/json;q=0.8, text/plain;q=0.7, */*;q=0.5',
           'accept-language': 'en-US,en;q=0.8',
           'user-agent': 'Mozilla/5.0 (compatible; MultiScreen/1.0; +https://synced.novec.online)',
+          ...options.headers,
         },
       });
     } finally {
@@ -60,10 +63,19 @@ export const fetchPublicText = async (rawUrl: string | URL, options: SafeFetchOp
       text: await readLimitedText(response, maxBytes),
       finalUrl: currentUrl,
       contentType: response.headers.get('content-type') ?? '',
+      setCookies: readSetCookies(response.headers),
     };
   }
 
   throw new Error('too_many_redirects');
+};
+
+const readSetCookies = (headers: Headers): string[] => {
+  const compatibleHeaders = headers as Headers & { getSetCookie?: () => string[] };
+  const cookies = compatibleHeaders.getSetCookie?.();
+  if (cookies?.length) return cookies;
+  const cookie = headers.get('set-cookie');
+  return cookie ? [cookie] : [];
 };
 
 export const assertPublicRemoteUrl = async (url: URL): Promise<void> => {

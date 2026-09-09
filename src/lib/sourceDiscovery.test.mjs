@@ -6,6 +6,15 @@ import {
   normalizeSourceUrl,
   sourceCategoryName,
 } from './sourceDiscovery.ts';
+import {
+  buildBongaListingUrl,
+  parseBongaListing,
+  parseBongaRoomStream,
+} from './bongacams.ts';
+import {
+  buildChaturbateListingUrl,
+  parseChaturbateListing,
+} from './chaturbateSource.ts';
 import { isPublicIpAddress } from './safeRemoteFetch.ts';
 
 test('normalizes a bare domain and uses it as the category name', () => {
@@ -43,6 +52,90 @@ test('extracts escaped direct media links once', () => {
   const html = `{"hls":"https:\\/\\/media.example.com\\/live.m3u8?token=abc"}`;
   assert.deepEqual(extractEmbeddedMediaUrls(html, new URL('https://example.com')), [
     'https://media.example.com/live.m3u8?token=abc',
+  ]);
+});
+
+test('builds and parses the BongaCams live listing', () => {
+  const sourceUrl = new URL('https://bongacams.com/');
+  const listingUrl = buildBongaListingUrl(sourceUrl);
+  assert.equal(listingUrl.pathname, '/tools/listing_v3.php');
+  assert.equal(listingUrl.searchParams.get('livetab'), 'all');
+
+  const channels = parseBongaListing(
+    {
+      models: [
+        {
+          username: 'alice_live',
+          display_name: 'Alice',
+          thumb_image: '//img.example.com/alice.{ext}',
+          viewers: 321,
+          gender: 'female',
+          room: 'public',
+          esid: 'edge-1',
+        },
+        { username: 'private_room', room: 'private', viewers: 999 },
+      ],
+    },
+    sourceUrl
+  );
+
+  assert.deepEqual(channels, [
+    {
+      name: 'Alice',
+      location: '321 viewers · female',
+      url: 'https://bongacams.com/alice_live',
+      logo: 'https://img.example.com/alice.webp',
+      playbackUrl: 'https://edge-1.bcvcdn.com/hls/stream_alice_live/public-aac/stream_alice_live/chunks.m3u8',
+      viewers: 321,
+    },
+  ]);
+});
+
+test('extracts a public BongaCams HLS stream from room data', () => {
+  assert.equal(
+    parseBongaRoomStream(
+      {
+        status: 'success',
+        performerData: { isOnline: true, showType: 'public' },
+        localData: { videoServerUrl: '//edge-2.bcvcdn.com' },
+      },
+      'alice_live'
+    ),
+    'https://edge-2.bcvcdn.com/hls/stream_alice_live/playlist.m3u8'
+  );
+});
+
+test('builds and parses the Chaturbate room listing', () => {
+  const sourceUrl = new URL('https://chaturbate.com/female-cams/');
+  const listingUrl = buildChaturbateListingUrl(sourceUrl);
+  assert.equal(listingUrl.pathname, '/api/ts/roomlist/room-list/');
+  assert.equal(listingUrl.searchParams.get('genders'), 'f');
+
+  const channels = parseChaturbateListing(
+    {
+      rooms: [
+        {
+          username: 'alice_cb',
+          display_age: 24,
+          current_show: 'public',
+          img: '//roomimg.example.com/alice.jpg',
+          num_users: 456,
+          gender: 'f',
+        },
+        { username: 'private_cb', current_show: 'private', num_users: 999 },
+      ],
+    },
+    sourceUrl
+  );
+
+  assert.deepEqual(channels, [
+    {
+      name: 'alice_cb (24)',
+      location: '456 viewers · female',
+      url: 'https://chaturbate.com/alice_cb/',
+      logo: 'https://roomimg.example.com/alice.jpg',
+      viewers: 456,
+    },
   ]);
 });
 
