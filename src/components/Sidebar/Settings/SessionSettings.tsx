@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 
 const SAVED_SESSIONS_KEY = 'multiscreenchaturbate-saved-sessions';
 const PASTES_API_KEY_STORAGE = 'multiscreenchaturbate-pastes-api-key';
+interface PasteSession { id: string; title: string; }
 
 export const SessionSettings = () => {
   const toast = useToast();
@@ -22,6 +23,7 @@ export const SessionSettings = () => {
   const [pasteReference, setPasteReference] = useState('');
   const [savingPaste, setSavingPaste] = useState(false);
   const [loadingPaste, setLoadingPaste] = useState(false);
+  const [pasteSessions, setPasteSessions] = useState<PasteSession[]>([]);
 
   useEffect(() => {
     try {
@@ -42,6 +44,20 @@ export const SessionSettings = () => {
   const persistSessions = (sessions: AppSession[]) => {
     setSavedSessions(sessions);
     localStorage.setItem(SAVED_SESSIONS_KEY, JSON.stringify(sessions));
+  };
+
+  const handlePastesList = async () => {
+    const apiKey = pastesApiKey.trim();
+    if (!apiKey) return toast({ title: 'Nejdřív zadej Pastes.io API klíč', status: 'warning', duration: 2800, isClosable: true });
+    try {
+      const response = await fetch('/api/session-pastes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'list', apiKey }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? 'Pastes.io se nepodařilo načíst.');
+      setPasteSessions(result.pastes ?? []);
+      toast({ title: `Pastes.io: ${result.pastes?.length ?? 0} session`, status: 'success', duration: 2500, isClosable: true });
+    } catch (error) {
+      toast({ title: 'Načtení Dropboxu selhalo', description: error instanceof Error ? error.message : 'Neznámá chyba', status: 'error', duration: 4500, isClosable: true });
+    } finally { setLoadingPaste(false); }
   };
 
   const handleLocalSave = () => {
@@ -95,19 +111,19 @@ export const SessionSettings = () => {
     }
   };
 
-  const handlePastesLoad = async () => {
-    if (!pasteReference.trim()) return;
+  const handlePastesLoad = async (reference = pasteReference) => {
+    if (!reference.trim()) return;
     setLoadingPaste(true);
     try {
       const response = await fetch('/api/session-pastes', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'load', apiKey: pastesApiKey.trim(), paste: pasteReference.trim() }),
+        body: JSON.stringify({ action: 'load', apiKey: pastesApiKey.trim(), paste: reference.trim() }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? 'Pastes.io session se nepodařilo načíst.');
       handleLoad(normalizeAppSession(result.session));
-      const pasteId = parsePastesId(pasteReference);
+      const pasteId = parsePastesId(reference);
       if (pasteId) {
         const shareUrl = buildSessionShareUrl(pasteId);
         setPasteReference(shareUrl);
@@ -157,6 +173,8 @@ export const SessionSettings = () => {
       <Button size="xs" colorScheme="orange" onClick={() => void handlePastesSave()} isLoading={savingPaste} loadingText="Ukládám…">Uložit na Pastes.io</Button>
       <Input size="sm" value={pasteReference} onChange={(event) => setPasteReference(event.target.value)} placeholder="Pastes.io odkaz nebo ID" bg="black" borderColor="whiteAlpha.400" />
       <Button size="xs" variant="outline" colorScheme="orange" onClick={() => void handlePastesLoad()} isLoading={loadingPaste} isDisabled={!pasteReference.trim()} loadingText="Načítám…">Načíst z Pastes.io</Button>
+      <Button size="xs" variant="outline" colorScheme="blue" onClick={() => void handlePastesList()} isLoading={loadingPaste} loadingText="Načítám seznam…">Načíst seznam session z Pastes.io</Button>
+      {pasteSessions.map((paste) => <Button key={paste.id} size="xs" variant="ghost" justifyContent="flex-start" noOfLines={1} onClick={() => { setPasteReference(paste.id); void handlePastesLoad(paste.id); }}>{paste.title}</Button>)}
       <Text fontSize="xs" color="gray.500">Sdílecí odkaz má tvar synced.novec.online/?session=ID a po otevření načte session automaticky.</Text>
       <Text fontSize="xs" color="gray.500">Klíč zůstává jen v této kartě prohlížeče a není součástí odkazu, session ani zdrojových souborů.</Text>
     </Flex>
