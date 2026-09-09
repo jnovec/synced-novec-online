@@ -41,12 +41,7 @@ export const fetchPublicText = async (rawUrl: string | URL, options: SafeFetchOp
         headers: {
           accept: 'text/html, application/xhtml+xml, application/json;q=0.8, text/plain;q=0.7, */*;q=0.5',
           'accept-language': 'en-US,en;q=0.8',
-          'cache-control': 'no-cache',
-          'sec-fetch-dest': options.method === 'GET' ? 'document' : 'empty',
-          'sec-fetch-mode': 'navigate',
-          'sec-fetch-site': 'none',
-          'upgrade-insecure-requests': '1',
-          'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'user-agent': 'Mozilla/5.0 (compatible; MultiScreen/1.0; +https://synced.novec.online)',
           ...options.headers,
         },
         ...(options.body ? { body: options.body } : {}),
