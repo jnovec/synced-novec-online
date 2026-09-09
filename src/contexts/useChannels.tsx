@@ -158,6 +158,10 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ url: sourceUrl }),
       });
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('Server vrátil neplatnou odpověď. Zkus to prosím znovu.');
+      }
       const data = (await response.json()) as SourceApiResponse;
       if (!response.ok || !data.category || !Array.isArray(data.channels)) {
         throw new Error(sourceErrorMessage(data.error, response.status));

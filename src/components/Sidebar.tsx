@@ -8,8 +8,6 @@ import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, 
 import ReactPlayer from 'react-player';
 import { useEffect, useState } from 'react';
 
-const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com'];
-
 export const Sidebar = () => {
   const toast = useToast();
   const { channels, isLoadingSource, sourceError, loadSource } = useChannelsContext();
@@ -196,14 +194,8 @@ export const Sidebar = () => {
                 _placeholder={{ color: 'whiteAlpha.600' }}
                 bg="black"
                 borderColor="whiteAlpha.400"
-                list="supported-source-websites"
                 aria-label="URL webu se streamy"
               />
-              <datalist id="supported-source-websites">
-                {supportedSourceWebsites.map((website) => (
-                  <option key={website} value={website} />
-                ))}
-              </datalist>
               <IconButton
                 aria-label="Načíst webový zdroj"
                 icon={<AddIcon />}
