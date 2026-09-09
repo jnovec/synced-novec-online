@@ -10,6 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     if (req.body?.action === 'save') return await saveSession(req, res);
     if (req.body?.action === 'load') return await loadSession(req, res);
+    if (req.body?.action === 'list') return await listSessions(req, res);
     return res.status(400).json({ error: 'unknown_action' });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'pastes_request_failed';
@@ -78,4 +79,25 @@ async function loadSession(req: NextApiRequest, res: NextApiResponse) {
   }
   if (Buffer.byteLength(result.success.content, 'utf8') > MAX_SESSION_BYTES) throw new Error('Pastes.io session je příliš velká.');
   return res.status(200).json({ session: normalizeAppSession(JSON.parse(result.success.content)) });
+}
+
+async function listSessions(req: NextApiRequest, res: NextApiResponse) {
+  const apiKey = normalizeApiKey(req.body?.apiKey);
+  if (!/^[A-Za-z0-9_-]{20,200}$/.test(apiKey)) throw new Error('Zadej platný Pastes.io API klíč.');
+  const response = await fetch(`${PASTES_API_URL}/pastes`, { headers: apiHeaders(apiKey) });
+  const result = await response.json().catch(() => null) as { success?: unknown; pastes?: unknown; data?: unknown; error?: string | { message?: string }; message?: string } | null;
+  if (!response.ok) {
+    const apiError = typeof result?.error === 'string' ? result.error : result?.error?.message;
+    throw new Error(apiError ?? result?.message ?? `Pastes.io HTTP ${response.status}`);
+  }
+  const payload = result ?? {};
+  const raw = Array.isArray(payload.success) ? payload.success : Array.isArray(payload.pastes) ? payload.pastes : Array.isArray(payload.data) ? payload.data : [];
+  const pastes = raw.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const value = item as Record<string, unknown>;
+    const id = typeof value.slug === 'string' ? value.slug : typeof value.id === 'string' ? value.id : '';
+    const title = typeof value.title === 'string' ? value.title : id;
+    return id ? [{ id, title }] : [];
+  }).filter((paste) => /multi.?screen\s+session/i.test(paste.title));
+  return res.status(200).json({ pastes });
 }

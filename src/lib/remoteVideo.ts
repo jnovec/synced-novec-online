@@ -17,6 +17,8 @@ export const resolveRemoteStreamUrl = async (pageUrl: string, playbackUrl?: stri
     });
     if (!response.ok) return null;
 
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.includes('application/json')) return null;
     const data = (await response.json()) as { streamUrl?: unknown };
     return typeof data.streamUrl === 'string' && data.streamUrl ? data.streamUrl : null;
   } catch {
