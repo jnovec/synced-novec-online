@@ -1,9 +1,9 @@
 import { useControlsContext } from '@/contexts/useControls';
 import { useAudioGamepadVibration } from '@/hooks/useAudioGamepadVibration';
 import { applyMediaAudio } from '@/lib/audioControls';
-import { resolveChaturbateStreamUrl } from '@/lib/chaturbate';
 import { isDisplaySlot } from '@/lib/displayMedia';
 import { findVibrationGamepad, vibrateGamepad } from '@/lib/gamepadVibration';
+import { normalizeRemoteVideo, resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { CloseIcon } from '@chakra-ui/icons';
 import {
   Badge,
@@ -98,7 +98,7 @@ export const VideoDisplay = ({
     setLoading(true);
     setResolvedUrl(null);
 
-    resolveChaturbateStreamUrl(slot.url)
+    resolveRemoteStreamUrl(slot.url, slot.playbackUrl)
       .then((streamUrl) => {
         if (cancelled) return;
         setResolvedUrl(streamUrl);
@@ -111,7 +111,7 @@ export const VideoDisplay = ({
     return () => {
       cancelled = true;
     };
-  }, [isDisplay, slot?.url]);
+  }, [isDisplay, slot?.playbackUrl, slot?.url]);
 
   const handleClick = () => {
     if (slot) {
@@ -138,12 +138,13 @@ export const VideoDisplay = ({
       event.dataTransfer.getData('text/uri-list') ||
       event.dataTransfer.getData('text/plain');
     const suppliedName = event.dataTransfer.getData('videoName');
-    const video = getChaturbateVideo(url, suppliedName);
+    const playbackUrl = event.dataTransfer.getData('videoPlaybackUrl');
+    const video = normalizeRemoteVideo(url, suppliedName, playbackUrl);
 
     if (!video) {
       toast({
         title: 'Neplatný stream',
-        description: 'Přetáhni odkaz ve tvaru https://chaturbate.com/jmeno/',
+        description: 'Přetáhni platnou HTTP nebo HTTPS adresu streamu.',
         status: 'warning',
         duration: 2800,
         isClosable: true,
@@ -155,11 +156,11 @@ export const VideoDisplay = ({
   };
 
   const handleManualUrlSubmit = () => {
-    const video = getChaturbateVideo(manualUrl, '');
+    const video = normalizeRemoteVideo(manualUrl);
     if (!video) {
       toast({
         title: 'Neplatný stream',
-        description: 'Zadej odkaz ve tvaru https://chaturbate.com/jmeno/',
+        description: 'Zadej platnou HTTP nebo HTTPS adresu.',
         status: 'warning',
         duration: 2800,
         isClosable: true,
@@ -328,6 +329,20 @@ export const VideoDisplay = ({
                 },
               }}
               style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+            />
+          ) : slot && shouldEmbedRemotePage(slot.url) ? (
+            <Box
+              as="iframe"
+              title={slot.name}
+              src={slot.url}
+              position="absolute"
+              inset={0}
+              w="100%"
+              h="100%"
+              border="0"
+              sandbox="allow-scripts allow-forms allow-popups allow-presentation"
+              referrerPolicy="no-referrer"
+              pointerEvents="none"
             />
           ) : (
             <Flex h="full" alignItems="center" justifyContent="center" color="gray.400">
@@ -527,7 +542,7 @@ export const VideoDisplay = ({
           <ModalCloseButton />
           <ModalBody>
             <Text fontSize="sm" color="gray.400" mb="3">
-              Zadej URL Chaturbate pokoje.
+              Zadej URL stránky, HLS nebo video soubor.
             </Text>
             <Input
               autoFocus
@@ -536,7 +551,7 @@ export const VideoDisplay = ({
               onKeyDown={(event) => {
                 if (event.key === 'Enter') handleManualUrlSubmit();
               }}
-              placeholder="https://chaturbate.com/jmeno/"
+              placeholder="https://example.com/live/stream"
               bg="black"
               borderColor="whiteAlpha.400"
             />
@@ -563,20 +578,3 @@ export const VideoDisplay = ({
     </>
   );
 };
-
-function getChaturbateVideo(rawUrl: string, suppliedName: string) {
-  try {
-    const parsed = new URL(rawUrl.trim());
-    const hostname = parsed.hostname.toLowerCase();
-    const isChaturbate = hostname === 'chaturbate.com' || hostname.endsWith('.chaturbate.com');
-    const username = parsed.pathname.split('/').filter(Boolean)[0];
-    if (!isChaturbate || !username) return null;
-
-    return {
-      url: `https://chaturbate.com/${username}/`,
-      name: suppliedName.trim() || username,
-    };
-  } catch {
-    return null;
-  }
-}

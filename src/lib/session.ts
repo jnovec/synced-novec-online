@@ -26,7 +26,14 @@ const normalizeSlot = (value: unknown): VideoSlot | null => {
     return { name: slot.name || 'App/Window Share', url: '', sourceType: 'display' };
   }
   if (typeof slot.url !== 'string' || !/^https?:\/\//i.test(slot.url)) return null;
-  return { name: slot.name, url: slot.url, sourceType: 'remote' };
+  return {
+    name: slot.name,
+    url: slot.url,
+    sourceType: 'remote',
+    ...(typeof slot.playbackUrl === 'string' && /^https?:\/\//i.test(slot.playbackUrl)
+      ? { playbackUrl: slot.playbackUrl }
+      : {}),
+  };
 };
 
 export const createAppSession = (input: {
@@ -45,7 +52,12 @@ export const createAppSession = (input: {
     if (!slot) return null;
     return isDisplaySlot(slot)
       ? { name: slot.name, url: '', sourceType: 'display' as const }
-      : { name: slot.name, url: slot.url, sourceType: 'remote' as const };
+      : {
+          name: slot.name,
+          url: slot.url,
+          sourceType: 'remote' as const,
+          ...(slot.playbackUrl ? { playbackUrl: slot.playbackUrl } : {}),
+        };
   }),
   audioSettings: Array.from(
     { length: SESSION_SLOT_COUNT },

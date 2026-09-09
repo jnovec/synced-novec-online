@@ -1,13 +1,12 @@
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { mergeCurrentRooms } from '@/lib/channelCatalog';
 import posthog from 'posthog-js';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 interface ChannelsContextInterface {
   channels: ChannelsObj;
-  isRefreshing: boolean;
+  isLoadingSource: boolean;
   lastUpdatedAt: number | null;
-  refreshError: string | null;
+  sourceError: string | null;
   addCategory: (newCategoryName: string) => void;
   deleteCategory: (deleteCategoryName: string) => void;
   addChannel: (
@@ -19,23 +18,20 @@ interface ChannelsContextInterface {
   ) => void;
   deleteChannel: (deleteChannelCategory: string, deleteChannelUrl: string) => void;
   clearChannels: () => void;
-  getMasterChannels: () => Promise<void>;
-  getAusTvChannels: () => Promise<void>;
+  loadSource: (sourceUrl: string) => Promise<SourceLoadResult>;
   importPlaylist: (playlistUrl: string) => Promise<number>;
 }
 
-const DEFAULT_CATEGORY = 'Chaturbate';
-const CHANNELOUT_STORAGE_KEY = 'chaturbate-popular-channels-v2';
-const POPULAR_PAGE_COUNT = 5;
-const PAGE_DELAY_MS = 100;
+const DEFAULT_CATEGORY = 'chaturbate.com';
+const CHANNELOUT_STORAGE_KEY = 'video-source-channels-v3';
 
 export const ChannelsContextProvider = ({ children }: ChannelsContextProviderProps) => {
   const { getLocalStorage, setLocalStorage } = useLocalStorage();
   const [channels, setChannelsHook] = useState<ChannelsObj>({});
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingSource, setIsLoadingSource] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
-  const [refreshError, setRefreshError] = useState<string | null>(null);
-  const refreshingRef = useRef(false);
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const loadingSourceRef = useRef(false);
 
   useEffect(() => {
     const savedChannels = getLocalStorage(CHANNELOUT_STORAGE_KEY);
@@ -46,7 +42,6 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
     ) {
       setChannelsHook(savedChannels);
     }
-    void getAusTvChannels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -150,39 +145,40 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
     return setChannels({});
   };
 
-  const getMasterChannels = async () => {
-    return getAusTvChannels();
-  };
-
-  const getAusTvChannels = async () => {
-    if (refreshingRef.current) return;
-    refreshingRef.current = true;
-    setIsRefreshing(true);
-    setRefreshError(null);
+  const loadSource = async (sourceUrl: string): Promise<SourceLoadResult> => {
+    if (loadingSourceRef.current) throw new Error('Jiný zdroj se právě načítá.');
+    loadingSourceRef.current = true;
+    setIsLoadingSource(true);
+    setSourceError(null);
 
     try {
-      const successfulPages: ChaturbateRoom[][] = [];
-      for (let page = 1; page <= POPULAR_PAGE_COUNT; page += 1) {
-        try {
-          const next = await fetchRoomPage(page);
-          successfulPages.push(next.rooms);
-        } catch (error) {
-          console.warn(`Chaturbate page ${page} failed`, error);
-        }
-        await sleep(PAGE_DELAY_MS);
+      const response = await fetch('/api/video-source', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: sourceUrl }),
+      });
+      const data = (await response.json()) as SourceApiResponse;
+      if (!response.ok || !data.category || !Array.isArray(data.channels)) {
+        throw new Error(sourceErrorMessage(data.error, response.status));
       }
 
-      const currentRooms = mergeCurrentRooms(successfulPages);
-      if (!currentRooms.length) throw new Error('Nepodařilo se načíst žádnou stránku aktuálních streamů.');
-
-      persistChannels({ [DEFAULT_CATEGORY]: currentRooms.map(roomToChannel) });
+      const nextChannels = dedupeByUrl(data.channels);
+      setChannelsHook((previous) => {
+        const next = { ...previous, [data.category as string]: nextChannels };
+        setLocalStorage(CHANNELOUT_STORAGE_KEY, next);
+        return next;
+      });
       setLastUpdatedAt(Date.now());
+      posthog.capture('source_loaded', { source: data.category, channel_count: nextChannels.length });
+      return { category: data.category, count: nextChannels.length };
     } catch (error) {
-      console.error('Failed to load Chaturbate rooms', error);
-      setRefreshError(error instanceof Error ? error.message : 'Načtení streamů selhalo.');
+      const message = error instanceof Error ? error.message : 'Načtení zdroje selhalo.';
+      setSourceError(message);
+      throw error;
     } finally {
-      refreshingRef.current = false;
-      setIsRefreshing(false);
+      loadingSourceRef.current = false;
+      setIsLoadingSource(false);
     }
   };
 
@@ -201,39 +197,20 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
 
   const providerValue: ChannelsContextInterface = {
     channels,
-    isRefreshing,
+    isLoadingSource,
     lastUpdatedAt,
-    refreshError,
+    sourceError,
     addCategory,
     deleteCategory,
     addChannel,
     deleteChannel,
     clearChannels,
-    getMasterChannels,
-    getAusTvChannels,
+    loadSource,
     importPlaylist,
   };
 
   return <ChannelsContext.Provider value={providerValue}>{children}</ChannelsContext.Provider>;
 };
-
-async function fetchRoomPage(page: number): Promise<ChaturbatePage> {
-  const response = await fetch(`/api/chaturbate?page=${page}`);
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  return (await response.json()) as ChaturbatePage;
-}
-
-function roomToChannel(room: ChaturbateRoom) {
-  return {
-    name: room.name,
-    location: room.location,
-    url: room.url,
-    logo: room.logo,
-    viewers: room.viewers,
-  };
-}
 
 function dedupeByUrl(channels: Channel[]): Channel[] {
   const seen = new Set<string>();
@@ -246,23 +223,9 @@ function dedupeByUrl(channels: Channel[]): Channel[] {
   return out.sort((a, b) => (b.viewers ?? 0) - (a.viewers ?? 0));
 }
 
-function sortRoomsByViewers(rooms: ChaturbateRoom[]): ChaturbateRoom[] {
-  return [...rooms].sort((a, b) => (b.viewers ?? 0) - (a.viewers ?? 0));
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 // -------------------------------------------
 // Interfaces
 // -------------------------------------------
-interface ChaturbatePage {
-  rooms: ChaturbateRoom[];
-  total_count: number;
-  page: number;
-}
-
 interface ChaturbateRoom {
   name: string;
   location: string;
@@ -281,7 +244,27 @@ export interface Channel {
   url: string;
   logo: string;
   viewers?: number;
+  playbackUrl?: string;
 }
+
+interface SourceApiResponse {
+  category?: string;
+  channels?: Channel[];
+  error?: string;
+}
+
+interface SourceLoadResult {
+  category: string;
+  count: number;
+}
+
+const sourceErrorMessage = (error: string | undefined, status: number): string => {
+  if (error === 'no_videos_found') return 'Na stránce nebyly nalezeny žádné streamy ani videa.';
+  if (error === 'private_address_not_allowed') return 'Interní a lokální adresy nejsou povolené.';
+  if (error === 'source_too_large') return 'Stránka je pro načtení příliš velká.';
+  if (error?.startsWith('source_http_')) return `Web vrátil chybu ${error.slice('source_http_'.length)}.`;
+  return `Zdroj se nepodařilo načíst (HTTP ${status}).`;
+};
 
 const isChannelsObj = (value: unknown): value is ChannelsObj => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -292,7 +275,8 @@ const isChannelsObj = (value: unknown): value is ChannelsObj => {
             channel &&
             typeof channel === 'object' &&
             typeof (channel as Channel).name === 'string' &&
-            typeof (channel as Channel).url === 'string'
+            typeof (channel as Channel).url === 'string' &&
+            ((channel as Channel).playbackUrl === undefined || typeof (channel as Channel).playbackUrl === 'string')
         )
       : false
   );

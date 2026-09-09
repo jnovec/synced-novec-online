@@ -1,7 +1,7 @@
 import { useControlsContext, VideoSlot } from '@/contexts/useControls';
 import { applyMediaAudio } from '@/lib/audioControls';
-import { resolveChaturbateStreamUrl } from '@/lib/chaturbate';
 import { isDisplaySlot } from '@/lib/displayMedia';
+import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from '@chakra-ui/icons';
 import {
   Box,
@@ -56,7 +56,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
 
     setLoading(true);
     setResolvedUrl(null);
-    resolveChaturbateStreamUrl(currentSlot.url)
+    resolveRemoteStreamUrl(currentSlot.url, currentSlot.playbackUrl)
       .then((streamUrl) => {
         if (!cancelled) setResolvedUrl(streamUrl);
       })
@@ -67,7 +67,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
     return () => {
       cancelled = true;
     };
-  }, [currentSlot?.url, isDisplay, isOpen]);
+  }, [currentSlot?.playbackUrl, currentSlot?.url, isDisplay, isOpen]);
 
   const go = (direction: -1 | 1) => {
     if (currentIndex === null || occupiedIndexes.length < 2) return;
@@ -119,6 +119,19 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
                 config={{ file: { forceHLS: true, attributes: { crossOrigin: 'true' } } }}
               />
             </Box>
+          ) : currentSlot && shouldEmbedRemotePage(currentSlot.url) ? (
+            <Box
+              as="iframe"
+              title={currentSlot.name}
+              src={currentSlot.url}
+              position="absolute"
+              inset={0}
+              w="100%"
+              h="100%"
+              border="0"
+              sandbox="allow-scripts allow-forms allow-popups allow-presentation"
+              referrerPolicy="no-referrer"
+            />
           ) : (
             <Text color="gray.400">Stream není dostupný.</Text>
           )}

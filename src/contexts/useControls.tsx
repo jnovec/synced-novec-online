@@ -454,6 +454,9 @@ const normalizeVideoSlot = (value: unknown): VideoSlot | null => {
   return {
     name: maybe.name,
     url: maybe.url,
+    ...(typeof maybe.playbackUrl === 'string' && /^https?:\/\//i.test(maybe.playbackUrl)
+      ? { playbackUrl: maybe.playbackUrl }
+      : {}),
   };
 };
 

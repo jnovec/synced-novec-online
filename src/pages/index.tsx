@@ -6,8 +6,8 @@ const Home = () => {
   return (
     <>
       <PageHeadMetadata
-        title="MultiScreenChaturbate | 9 kanálů + preview"
-        description="Chaturbate multi-view pro 9 současných kanálů s levým preview panelem pro rychlou výměnu."
+        title="MultiScreen | webové streamy na jedné obrazovce"
+        description="Načti streamy z vlastní URL a sleduj až 9 videí současně s rychlým náhledem."
       />
       <AppShell>
         <VideoGrid />

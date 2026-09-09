@@ -1,8 +1,8 @@
 import { useChannelsContext } from '@/contexts/useChannels';
 import { useControlsContext } from '@/contexts/useControls';
-import { resolveChaturbateStreamUrl } from '@/lib/chaturbate';
 import { isDisplaySlot } from '@/lib/displayMedia';
 import { buildM3uPlaylist } from '@/lib/playlist';
+import { resolveRemoteStreamUrl } from '@/lib/remoteVideo';
 import { AddIcon, MinusIcon } from '@chakra-ui/icons';
 import {
   AccordionButton,
@@ -37,7 +37,7 @@ export const SettingsAccordionItem = () => {
   const { isOpen: isOpenAddChannel, onOpen: onOpenAddChannel, onClose: onCloseAddChannel } = useDisclosure();
   const { isOpen: isOpenDeleteChannel, onOpen: onOpenDeleteChannel, onClose: onCloseDeleteChannel } = useDisclosure();
   const toast = useToast();
-  const { clearChannels, getAusTvChannels, importPlaylist, isRefreshing } = useChannelsContext();
+  const { clearChannels, importPlaylist } = useChannelsContext();
   const { gridSize, setGridSize, gridSizeMap, slots } = useControlsContext();
   const possibleGridSizes = Object.keys(gridSizeMap)
     .map((key) => parseInt(key, 10))
@@ -110,7 +110,10 @@ export const SettingsAccordionItem = () => {
     setIsExportingPlaylist(true);
     try {
       const resolved = await Promise.all(
-        loadedSlots.map(async (slot) => ({ name: slot.name, streamUrl: await resolveChaturbateStreamUrl(slot.url) }))
+        loadedSlots.map(async (slot) => ({
+          name: slot.name,
+          streamUrl: await resolveRemoteStreamUrl(slot.url, slot.playbackUrl),
+        }))
       );
       const entries = resolved.flatMap((entry) => (entry.streamUrl ? [{ name: entry.name, streamUrl: entry.streamUrl }] : []));
       if (!entries.length) throw new Error('Žádný načtený stream nyní neposkytuje M3U8 adresu.');
@@ -229,15 +232,6 @@ export const SettingsAccordionItem = () => {
               </Button>
               <Button size="xs" onClick={() => void handlePlaylistExport()} isLoading={isExportingPlaylist} loadingText="Získávám M3U8…" variant="outline" colorScheme="whiteAlpha">
                 Uložit jména + M3U8
-              </Button>
-            </Flex>
-            <Divider color="#EEEEEC" />
-            <Flex flexDir="column" justifyContent="center" alignItems="center" gap="1" py="1">
-              <Text fontSize="sm" fontWeight="semibold">
-                Chaturbate
-              </Text>
-              <Button size="xs" onClick={() => void getAusTvChannels()} isLoading={isRefreshing} colorScheme="whiteAlpha" variant="solid" color="#EEEEEC">
-                Obnovit populární streamy
               </Button>
             </Flex>
           </Flex>

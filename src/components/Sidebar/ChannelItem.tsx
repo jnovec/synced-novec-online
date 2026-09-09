@@ -7,19 +7,21 @@ interface ChannelItemProps {
   location: string;
   url: string;
   logo?: string;
+  playbackUrl?: string;
 }
 
-export const ChannelItem = ({ name, location, url, logo }: ChannelItemProps) => {
+export const ChannelItem = ({ name, location, url, logo, playbackUrl }: ChannelItemProps) => {
   const { selectedVideo, setSelectedVideo } = useControlsContext();
 
   const handleDragStart = (e: DragEvent) => {
     e.dataTransfer.setData('videoUrl', url);
     e.dataTransfer.setData('videoName', name);
+    if (playbackUrl) e.dataTransfer.setData('videoPlaybackUrl', playbackUrl);
     return;
   };
 
   const handleOnClick = () => {
-    return setSelectedVideo({ url, name });
+    return setSelectedVideo({ url, name, ...(playbackUrl ? { playbackUrl } : {}) });
   };
 
   return (

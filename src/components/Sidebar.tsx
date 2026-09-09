@@ -2,19 +2,21 @@ import { SidebarAccordionItem } from '@/components/Sidebar/SidebarAccordionItem'
 import { SettingsAccordionItem } from '@/components/Sidebar/Settings/SettingsAccordionItem';
 import { useChannelsContext } from '@/contexts/useChannels';
 import { useControlsContext } from '@/contexts/useControls';
-import { resolveChaturbateStreamUrl } from '@/lib/chaturbate';
-import { ChevronLeftIcon, ChevronRightIcon, RepeatIcon } from '@chakra-ui/icons';
-import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, Spinner, Text } from '@chakra-ui/react';
+import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
+import { AddIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
+import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, Input, Spinner, Text, useToast } from '@chakra-ui/react';
 import ReactPlayer from 'react-player';
 import { useEffect, useState } from 'react';
 
 export const Sidebar = () => {
-  const { channels, isRefreshing, refreshError, getAusTvChannels } = useChannelsContext();
+  const toast = useToast();
+  const { channels, isLoadingSource, sourceError, loadSource } = useChannelsContext();
   const { selectedVideo, setSelectedVideo } = useControlsContext();
   const [minimized, setMinimized] = useState<boolean>(false);
+  const [sourceUrl, setSourceUrl] = useState('');
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const currentStreamCount = channels.Chaturbate?.length ?? 0;
+  const currentStreamCount = Object.values(channels).reduce((sum, group) => sum + group.length, 0);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,7 +30,7 @@ export const Sidebar = () => {
     setPreviewLoading(true);
     setResolvedPreviewUrl(null);
 
-    resolveChaturbateStreamUrl(selectedVideo.url)
+    resolveRemoteStreamUrl(selectedVideo.url, selectedVideo.playbackUrl)
       .then((streamUrl) => {
         if (cancelled) return;
         setResolvedPreviewUrl(streamUrl);
@@ -41,7 +43,29 @@ export const Sidebar = () => {
     return () => {
       cancelled = true;
     };
-  }, [selectedVideo?.url]);
+  }, [selectedVideo?.playbackUrl, selectedVideo?.url]);
+
+  const handleSourceSubmit = async () => {
+    if (!sourceUrl.trim()) return;
+    try {
+      const result = await loadSource(sourceUrl);
+      toast({
+        title: `${result.category}: ${result.count} položek`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      setSourceUrl('');
+    } catch (error) {
+      toast({
+        title: 'Zdroj se nepodařilo načíst',
+        description: error instanceof Error ? error.message : 'Neznámá chyba',
+        status: 'error',
+        duration: 4500,
+        isClosable: true,
+      });
+    }
+  };
 
   return (
     <Flex
@@ -64,7 +88,7 @@ export const Sidebar = () => {
               MultiScreenChaturbate
             </Text>
             <Text color="gray.400" fontSize="sm">
-              Všechny veřejné streamy + preview vlevo
+              Vlastní webové zdroje + preview
             </Text>
           </Box>
         ) : (
@@ -123,6 +147,18 @@ export const Sidebar = () => {
                     style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
                   />
                 </Box>
+              ) : selectedVideo && shouldEmbedRemotePage(selectedVideo.url) ? (
+                <Box
+                  as="iframe"
+                  title={`Náhled ${selectedVideo.name}`}
+                  src={selectedVideo.url}
+                  h="170px"
+                  w="100%"
+                  border="0"
+                  sandbox="allow-scripts allow-forms allow-popups allow-presentation"
+                  referrerPolicy="no-referrer"
+                  pointerEvents="none"
+                />
               ) : (
                 <Flex h="170px" alignItems="center" justifyContent="center" direction="column" gap="1" color="gray.500">
                   <Image src="/favicon.ico" alt="preview" boxSize="28px" opacity={0.6} />
@@ -141,40 +177,62 @@ export const Sidebar = () => {
             </Flex>
           </Box>
 
+          <Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="3">
+            <Text color="#EEEEEC" fontSize="sm" fontWeight="semibold" mb="2">
+              Přidat webový zdroj
+            </Text>
+            <Flex gap="2">
+              <Input
+                size="sm"
+                value={sourceUrl}
+                onChange={(event) => setSourceUrl(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void handleSourceSubmit();
+                }}
+                placeholder="bongacams.com"
+                bg="black"
+                borderColor="whiteAlpha.400"
+                aria-label="URL webu se streamy"
+              />
+              <IconButton
+                aria-label="Načíst webový zdroj"
+                icon={<AddIcon />}
+                size="sm"
+                colorScheme="red"
+                isLoading={isLoadingSource}
+                isDisabled={!sourceUrl.trim()}
+                onClick={() => void handleSourceSubmit()}
+              />
+            </Flex>
+            <Text color="gray.500" fontSize="xs" mt="2">
+              Nalezená videa se uloží do sekce pojmenované podle domény.
+            </Text>
+          </Box>
+
           <Divider borderColor="whiteAlpha.300" />
 
           <Box flex="1" minH={0} overflowY="auto" pr="1">
             <Flex alignItems="center" justifyContent="space-between" gap="2" px="1" pb="2">
               <Text color="gray.400" fontSize="xs">
-                {isRefreshing ? 'Načítám aktuální streamy…' : `${currentStreamCount} aktuálních streamů`}
+                {isLoadingSource ? 'Načítám web…' : `${currentStreamCount} uložených streamů`}
               </Text>
-              <IconButton
-                aria-label="Obnovit aktuální streamy"
-                title="Refresh streamů"
-                icon={<RepeatIcon />}
-                size="xs"
-                colorScheme="red"
-                variant="outline"
-                isLoading={isRefreshing}
-                onClick={() => void getAusTvChannels()}
-              />
             </Flex>
-            {refreshError && (
+            {sourceError && (
               <Text color="red.300" fontSize="xs" px="1" pb="2">
-                {refreshError}
+                {sourceError}
               </Text>
             )}
             <Accordion allowToggle>
-              {Object.keys(channels).length > 0 ? (
-                <SidebarAccordionItem title="Všechny streamy" innerData={channels['Chaturbate'] ?? []} />
-              ) : null}
+              {Object.entries(channels).map(([category, sourceChannels]) => (
+                <SidebarAccordionItem key={category} title={category} innerData={sourceChannels} />
+              ))}
               <SettingsAccordionItem />
             </Accordion>
           </Box>
         </Flex>
       )}
 
-      {minimized && <Text color="gray.500">all</Text>}
+      {minimized && <Text color="gray.500">URL</Text>}
     </Flex>
   );
 };

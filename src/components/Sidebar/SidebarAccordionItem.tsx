@@ -26,6 +26,7 @@ export const SidebarAccordionItem = ({ title, innerData }: SidebarAccordionItemP
               location={channel.location}
               url={channel.url}
               logo={channel.logo}
+              playbackUrl={channel.playbackUrl}
             />
           );
         })}

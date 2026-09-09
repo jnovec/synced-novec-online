@@ -1,6 +1,6 @@
-# MultiScreenChaturbate
+# MultiScreen
 
-Next.js app for watching 9 live streams at once, with a left-side preview pane for quick swapping.
+Next.js app for discovering video/stream links from a supplied web URL and watching up to 9 sources at once.
 
 ## Run locally
 
@@ -11,11 +11,12 @@ npm run dev
 
 ## Workflow
 
-1. Click a channel in the left sidebar to load it into the preview pane.
-2. Click any grid tile to swap the preview stream into that slot.
-3. Click an occupied tile without a preview selected to send that stream back into preview.
+1. Enter a page such as `bongacams.com` under **Přidat webový zdroj**.
+2. The server reads the page and creates a sidebar section named after its domain.
+3. Click a discovered channel to load it into the preview pane, then click a grid tile to swap it into that slot.
+4. Click an occupied tile without a preview selected to send that stream back into preview.
 
-The app stores the grid and preview in local storage.
+The app stores discovered sections, the grid and the preview in local storage. Direct HLS/MP4 links are preferred; for sites that hide media URLs, the app attempts a sandboxed page embed. A provider may still block automated page loading or embedding.
 
 ## Audio-driven gamepad vibration
 

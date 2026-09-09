@@ -1,6 +1,7 @@
 export interface VideoSlot {
   name: string;
   url: string;
+  playbackUrl?: string;
   sourceType?: 'remote' | 'display';
   sourceId?: string;
 }
