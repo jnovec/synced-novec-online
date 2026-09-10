@@ -34,6 +34,7 @@ interface ControlsContextInterface {
   displayStreams: (MediaStream | null)[];
   audioSettings: AudioSettings[];
   setSlotVideo: (index: number, video: VideoSlot | null) => void;
+  swapSlots: (fromIndex: number, toIndex: number) => void;
   startDisplayShare: (index: number) => Promise<boolean>;
   stopDisplayShare: (index: number) => void;
   setSlotMuted: (index: number, muted: boolean) => void;
@@ -140,6 +141,46 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
     });
   };
 
+  const swapSlots = (fromIndex: number, toIndex: number) => {
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= GRID_SLOT_COUNT ||
+      toIndex >= GRID_SLOT_COUNT
+    ) {
+      return;
+    }
+
+    setSlotsHook((prev) => {
+      const next = [...prev];
+      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+      return next;
+    });
+
+    const nextStreams = [...displayStreamsRef.current];
+    [nextStreams[fromIndex], nextStreams[toIndex]] = [nextStreams[toIndex], nextStreams[fromIndex]];
+    displayStreamsRef.current = nextStreams;
+    setDisplayStreams(nextStreams);
+
+    setAudioSettings((prev) => {
+      const next = [...prev];
+      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+      return next;
+    });
+
+    setActiveVideos((prev) => {
+      const next = new Map(prev);
+      const fromActive = prev.has(fromIndex);
+      const toActive = prev.has(toIndex);
+      next.delete(fromIndex);
+      next.delete(toIndex);
+      if (fromActive) next.set(toIndex, true);
+      if (toActive) next.set(fromIndex, true);
+      return next;
+    });
+  };
+
   const clearSlot = (index: number) => {
     detachDisplayStream(index);
     setSlotsHook((prev) => {
@@ -199,16 +240,17 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
     videoTrack.addEventListener(
       'ended',
       () => {
-        if (displayStreamsRef.current[index] !== stream) return;
+        const currentIndex = displayStreamsRef.current.findIndex((candidate) => candidate === stream);
+        if (currentIndex < 0) return;
 
         const next = [...displayStreamsRef.current];
-        next[index] = null;
+        next[currentIndex] = null;
         displayStreamsRef.current = next;
         setDisplayStreams(next);
         setSlotsHook((prev) => {
-          if (prev[index]?.sourceId !== displaySlot.sourceId) return prev;
+          if (prev[currentIndex]?.sourceId !== displaySlot.sourceId) return prev;
           const nextSlots = [...prev];
-          nextSlots[index] = null;
+          nextSlots[currentIndex] = null;
           return nextSlots;
         });
       },
@@ -346,6 +388,7 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
     displayStreams,
     audioSettings,
     setSlotVideo,
+    swapSlots,
     startDisplayShare,
     stopDisplayShare,
     setSlotMuted,
