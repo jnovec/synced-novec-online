@@ -31,6 +31,52 @@ export const buildBongaListingUrl = (sourceUrl: URL, liveTab?: string): URL => {
   return listingUrl;
 };
 
+export const parseBongaHomepage = (html: string, sourceUrl: URL): DiscoveredChannel[] => {
+  const normalized = html
+    .replace(/\\u002f/gi, '/')
+    .replace(/\\u003a/gi, ':')
+    .replace(/\\u0026/gi, '&')
+    .replace(/\\\//g, '/');
+  const channels: DiscoveredChannel[] = [];
+  const seen = new Set<string>();
+
+  for (const match of normalized.matchAll(/<a\b([^>]*)href\s*=\s*(?:"([^"]+)"|'([^']+)')[^>]*>([\s\S]*?)<\/a>/gi)) {
+    const attributes = match[1] ?? '';
+    const href = (match[2] ?? match[3] ?? '').trim();
+    const body = match[4] ?? '';
+    const profileMatch = href.match(/^\/?profile\/([a-z0-9_.-]{1,80})(?:[/?#]|$)/i);
+    if (!profileMatch) continue;
+
+    const username = cleanUsername(profileMatch[1]);
+    if (!username || seen.has(username.toLowerCase())) continue;
+
+    const imageTag = body.match(/<img\b[^>]*>/i)?.[0] ?? '';
+    const name = firstUsefulLabel([
+      readAttribute(attributes, 'aria-label'),
+      readAttribute(attributes, 'title'),
+      readAttribute(attributes, 'data-name'),
+      readAttribute(attributes, 'data-model-name'),
+      readAttribute(imageTag, 'alt'),
+      readAttribute(imageTag, 'title'),
+      stripMarkup(body),
+      username,
+    ]) || username;
+    const viewers = extractViewerCount(body);
+    const logo = firstImageUrl(imageTag, sourceUrl);
+
+    seen.add(username.toLowerCase());
+    channels.push({
+      name,
+      location: `${viewers} viewers · bongacams.com`,
+      url: new URL(`/profile/${encodeURIComponent(username)}`, sourceUrl.origin).toString(),
+      logo,
+      viewers,
+    });
+  }
+
+  return channels;
+};
+
 export const parseBongaListing = (payload: unknown, sourceUrl: URL): DiscoveredChannel[] => {
   if (!payload || typeof payload !== 'object') return [];
   const models = Array.isArray(payload)
@@ -122,6 +168,55 @@ const normalizeBongaImage = (rawImage: unknown, sourceUrl: URL): string => {
     return '';
   }
 };
+
+const firstImageUrl = (imageTag: string, sourceUrl: URL): string => {
+  for (const attribute of ['data-src', 'data-original', 'data-lazy-src', 'src']) {
+    const raw = readAttribute(imageTag, attribute);
+    if (!raw || /^(?:data|blob):/i.test(raw)) continue;
+    try {
+      const image = new URL(raw.startsWith('//') ? `https:${raw}` : decodeHtml(raw), sourceUrl);
+      if (['http:', 'https:'].includes(image.protocol)) return image.toString();
+    } catch {
+      // Try the next image attribute.
+    }
+  }
+  return '';
+};
+
+const extractViewerCount = (markup: string): number => {
+  const text = stripMarkup(markup);
+  const raw = text.match(/(\d[\d\s,.]{0,8})\s*(?:viewers?|watching|online|users?)/i)?.[1];
+  const numeric = Number((raw ?? '0').replace(/[\s,.]/g, ''));
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : 0;
+};
+
+const firstUsefulLabel = (values: Array<string | null>): string => {
+  const generic = new Set(['watch', 'live', 'profile', 'open', 'view']);
+  for (const value of values) {
+    const cleaned = decodeHtml(value ?? '').replace(/\s+/g, ' ').trim().slice(0, 90);
+    if (cleaned && !generic.has(cleaned.toLowerCase())) return cleaned;
+  }
+  return '';
+};
+
+const readAttribute = (markup: string, name: string): string | null => {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = markup.match(new RegExp(`\\b${escaped}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`, 'i'));
+  return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
+};
+
+const stripMarkup = (markup: string): string =>
+  decodeHtml(markup.replace(/<script\b[\s\S]*?<\/script>/gi, ' ').replace(/<style\b[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const decodeHtml = (value: string): string =>
+  value
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>');
 
 const bongaLiveTab = (url: URL): string => {
   const firstPart = url.pathname.split('/').filter(Boolean)[0]?.toLowerCase();
