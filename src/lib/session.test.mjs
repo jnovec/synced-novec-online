@@ -29,7 +29,14 @@ describe('session snapshots', () => {
   it('normalizes malformed optional values safely', () => {
     const session = normalizeAppSession({ version: 1, name: '', gridSize: 99, slots: [] });
     assert.equal(session.gridSize, 9);
-    assert.equal(session.slots.length, 9);
+    assert.equal(session.slots.length, 18);
+  });
+
+  it('accepts the 18-screen grid size', () => {
+    const session = normalizeAppSession({ version: 1, name: '18 screens', gridSize: 18, slots: [] });
+    assert.equal(session.gridSize, 18);
+    assert.equal(session.slots.length, 18);
+    assert.equal(session.audioSettings.length, 18);
   });
 
   it('accepts Pastes.io slugs and links', () => {
