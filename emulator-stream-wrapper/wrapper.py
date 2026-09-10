@@ -25,8 +25,8 @@ def devices(adb):
         if len(parts) < 2 or parts[1] != "device":
             continue
         serial = parts[0]
-        model = next((x.split(":", 1)[1] for x in parts[1:] if x.startswith("model:")), "unknown")
-        product = next((x.split(":", 1)[1] for x in parts[1:] if x.startswith("product:")), "unknown")
+        model = next((x.split(":", 1)[1] for x in parts[2:] if x.startswith("model:")), "unknown")
+        product = next((x.split(":", 1)[1] for x in parts[2:] if x.startswith("product:")), "unknown")
         out.append({"serial": serial, "model": model, "product": product, "state": "device"})
     return out
 
@@ -69,7 +69,20 @@ class Streamer:
     def once(self):
         self.clear()
         adb_cmd = [self.adb, "-s", self.serial, "exec-out", "screenrecord", "--output-format=h264", "--bit-rate=12000000", "--size=1080x1920", "--time-limit", "170", "-"]
-        ff = [self.ffmpeg, "-hide_banner", "-loglevel", "warning", "-probesize", "1M", "-analyzeduration", "2M", "-fflags", "+genpts", "-f", "h264", "-r", "25", "-i", "pipe:0", "-an", "-c:v", "copy", "-f", "hls", "-hls_time", "1", "-hls_list_size", "3", "-hls_flags", "delete_segments+independent_segments+omit_endlist", "-hls_segment_type", "mpegts", "-hls_allow_cache", "0", str(self.root / "stream.m3u8")]
+        # Re-encode instead of stream-copying raw H.264. This gives FFmpeg clean PTS/DTS,
+        # regular GOPs and HLS-safe timestamps. It is more CPU-intensive but much more robust.
+        ff = [
+            self.ffmpeg, "-hide_banner", "-loglevel", "warning",
+            "-probesize", "1M", "-analyzeduration", "2M",
+            "-f", "h264", "-r", "25", "-i", "pipe:0",
+            "-an", "-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
+            "-pix_fmt", "yuv420p", "-r", "25", "-g", "25", "-keyint_min", "25",
+            "-sc_threshold", "0", "-b:v", "8M", "-maxrate", "8M", "-bufsize", "16M",
+            "-f", "hls", "-hls_time", "1", "-hls_list_size", "4",
+            "-hls_flags", "delete_segments+independent_segments+omit_endlist",
+            "-hls_segment_type", "mpegts", "-hls_allow_cache", "0",
+            str(self.root / "stream.m3u8")
+        ]
         print("Starting:", " ".join(adb_cmd))
         a = subprocess.Popen(adb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
         assert a.stdout
@@ -80,7 +93,8 @@ class Streamer:
             buf.extend(c)
             if self.sps(buf): break
         if not buf:
-            raise RuntimeError("screenrecord produced no H.264 data")
+            err = a.stderr.read().decode(errors="replace") if a.stderr else ""
+            raise RuntimeError("screenrecord produced no H.264 data" + (f": {err.strip()}" if err.strip() else ""))
         f = subprocess.Popen(ff, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, bufsize=0)
         assert f.stdin
         with self.lock:
@@ -100,7 +114,8 @@ class Streamer:
                 c = os.read(a.stdout.fileno(), 65536)
                 if not c: break
                 f.stdin.write(c); f.stdin.flush()
-        except (BrokenPipeError, OSError): pass
+        except (BrokenPipeError, OSError):
+            pass
         finally:
             try: f.stdin.close()
             except Exception: pass
@@ -122,7 +137,14 @@ class Streamer:
 
     def status(self):
         with self.lock:
-            return {"running": bool(self.proc and self.proc.poll() is None), "device": self.serial, "playlist_ready": (self.root/"stream.m3u8").exists(), "resolution": "1080x1920", "fps": 25, "error": self.error}
+            return {
+                "running": bool(self.proc and self.proc.poll() is None),
+                "device": self.serial,
+                "playlist_ready": (self.root/"stream.m3u8").exists(),
+                "resolution": "1080x1920",
+                "fps": 25,
+                "error": self.error
+            }
 
     def stop(self):
         self.running = False
@@ -133,18 +155,22 @@ class Streamer:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "EmulatorStreamWrapper/0.5"
+    server_version = "EmulatorStreamWrapper/0.6"
+
     def json(self, code, obj):
         b=json.dumps(obj, ensure_ascii=False).encode(); self.send_response(code); self.send_header("Content-Type","application/json; charset=utf-8"); self.send_header("Access-Control-Allow-Origin","*"); self.send_header("Cache-Control","no-store"); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b)
+
     def body(self):
         n=int(self.headers.get("Content-Length","0")); return json.loads((self.rfile.read(n) if n else b"{}").decode() or "{}")
+
     def file(self, p, ct):
         end=time.time()+5
         while not p.exists() and time.time()<end: time.sleep(.1)
         if not p.exists(): return self.json(503,{"error":"stream not ready"})
         try: b=p.read_bytes()
         except OSError: return self.json(503,{"error":"file temporarily unavailable"})
-        self.send_response(200); self.send_header("Content-Type",ct); self.send_header("Cache-Control","no-cache, no-store"); self.send_header("Access-Control-Allow-Origin","*"); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b)
+        self.send_response(200); self.send_header("Content-Type",ct); self.send_header("Cache-Control","no-cache, no-store, must-revalidate"); self.send_header("Access-Control-Allow-Origin","*"); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b)
+
     def do_GET(self):
         if self.path=="/api/devices": return self.json(200,{"ok":True,"devices":devices(self.server.adb)})
         if self.path=="/api/status": return self.json(200,{"ok":True,**self.server.stream.status()})
@@ -152,18 +178,21 @@ class Handler(BaseHTTPRequestHandler):
         if clean=="/stream.m3u8": return self.file(self.server.stream.root/"stream.m3u8","application/vnd.apple.mpegurl")
         if clean.startswith("/stream") and clean.endswith(".ts"):
             name=Path(clean).name
-            if name.startswith("stream"):
-                return self.file(self.server.stream.root/name,"video/mp2t")
-        if self.path=="/":
-            html=PAGE.encode(); self.send_response(200); self.send_header("Content-Type","text/html; charset=utf-8"); self.send_header("Content-Length",str(len(html))); self.end_headers(); self.wfile.write(html); return
+            if name.startswith("stream"): return self.file(self.server.stream.root/name,"video/mp2t")
+        if clean=="/":
+            html=PAGE.encode(); self.send_response(200); self.send_header("Content-Type","text/html; charset=utf-8"); self.send_header("Cache-Control","no-store"); self.send_header("Content-Length",str(len(html))); self.end_headers(); self.wfile.write(html); return
         return self.json(404,{"error":"not found"})
+
     def do_POST(self):
         try:
             d=self.body()
             if self.path=="/api/select":
                 serial=str(d["serial"])
                 if serial not in [x["serial"] for x in devices(self.server.adb)]: return self.json(400,{"error":"device not available"})
-                self.server.stream.stop(); self.server.stream=Streamer(self.server.adb,self.server.ffmpeg,serial,self.server.root)
+                old=self.server.stream
+                old.stop()
+                time.sleep(.2)
+                self.server.stream=Streamer(self.server.adb,self.server.ffmpeg,serial,self.server.root)
                 return self.json(200,{"ok":True,"device":serial})
             if self.path=="/api/stop": self.server.stream.stop(); return self.json(200,{"ok":True})
             dev=Device(self.server.adb,self.server.stream.serial)
@@ -174,9 +203,60 @@ class Handler(BaseHTTPRequestHandler):
             else: return self.json(404,{"error":"not found"})
             self.json(200,{"ok":True})
         except Exception as e: self.json(400,{"ok":False,"error":str(e)})
+
     def log_message(self,fmt,*args): print("[%s] %s"%(self.log_date_time_string(),fmt%args))
 
-PAGE='''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Synced Emulator Manager</title><style>body{margin:0;background:#101114;color:#eee;font-family:system-ui;padding:24px}h1{margin-top:0}.top{display:flex;gap:10px;align-items:center;margin-bottom:20px}button{border:0;border-radius:8px;padding:9px 14px;cursor:pointer}video{background:#000;max-height:70vh;max-width:420px;width:100%;border-radius:10px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.card{background:#1b1d22;border:1px solid #30333a;border-radius:12px;padding:16px}.serial{font-weight:700}.muted{color:#9da3ad;font-size:13px}.selected{border-color:#6ee7b7}.row{display:flex;justify-content:space-between;align-items:center}.danger{margin-top:10px}</style></head><body><h1>Synced Emulator Manager</h1><div class="top"><button onclick="load()">↻ Obnovit seznam</button><span id="state" class="muted"></span></div><div id="list" class="grid"></div><h2>Stream</h2><video id="v" controls autoplay muted playsinline></video><pre id="status"></pre><script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script><script>let h;async function load(){let r=await fetch('/api/devices');let x=await r.json();let s=await fetch('/api/status').then(r=>r.json());document.getElementById('state').textContent='Aktivní: '+s.device;document.getElementById('list').innerHTML=x.devices.map(d=>`<div class="card ${d.serial===s.device?'selected':''}"><div class="row"><span class="serial">${d.serial}</span><span>● READY</span></div><p class="muted">model: ${d.model}<br>product: ${d.product}</p><button onclick="selectDevice('${d.serial}')">STREAMOVAT</button></div>`).join('')||'<div class="card">Žádný dostupný BlueStacks emulator.</div>';status()}async function selectDevice(serial){document.getElementById('state').textContent='Spouštím '+serial+'…';await fetch('/api/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({serial})});setTimeout(()=>{load();startVideo()},1000)}function startVideo(){let v=document.getElementById('v');if(h){h.destroy();h=null}let src='/stream.m3u8';if(v.canPlayType('application/vnd.apple.mpegurl'))v.src=src;else if(window.Hls&&Hls.isSupported()){h=new Hls({lowLatencyMode:true,maxLiveSyncPlaybackRate:1.5});h.loadSource(src);h.attachMedia(v)}}async function status(){let s=await fetch('/api/status').then(r=>r.json());document.getElementById('status').textContent=JSON.stringify(s,null,2);if(s.playlist_ready)startVideo()}load();setInterval(status,2000)</script></body></html>'''
+
+PAGE='''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Synced Emulator Manager</title><style>body{margin:0;background:#101114;color:#eee;font-family:system-ui;padding:24px}h1{margin-top:0}.top{display:flex;gap:10px;align-items:center;margin-bottom:20px}button{border:0;border-radius:8px;padding:9px 14px;cursor:pointer}video{background:#000;max-height:70vh;max-width:420px;width:100%;border-radius:10px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.card{background:#1b1d22;border:1px solid #30333a;border-radius:12px;padding:16px}.serial{font-weight:700}.muted{color:#9da3ad;font-size:13px}.selected{border-color:#6ee7b7}.row{display:flex;justify-content:space-between;align-items:center}</style></head><body><h1>Synced Emulator Manager</h1><div class="top"><button onclick="load()">↻ Obnovit seznam</button><span id="state" class="muted"></span></div><div id="list" class="grid"></div><h2>Stream</h2><video id="v" controls autoplay muted playsinline></video><pre id="status"></pre><script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script><script>
+let h=null, videoStarted=false, statusBusy=false;
+async function load(){
+  try{
+    let r=await fetch('/api/devices',{cache:'no-store'}); let x=await r.json();
+    let s=await fetch('/api/status',{cache:'no-store'}).then(r=>r.json());
+    document.getElementById('state').textContent='Aktivní: '+s.device;
+    document.getElementById('list').innerHTML=x.devices.map(d=>`<div class="card ${d.serial===s.device?'selected':''}"><div class="row"><span class="serial">${d.serial}</span><span>● READY</span></div><p class="muted">model: ${d.model}<br>product: ${d.product}</p><button onclick="selectDevice('${d.serial}')">${d.serial===s.device?'AKTIVNÍ':'STREAMOVAT'}</button></div>`).join('')||'<div class="card">Žádný dostupný BlueStacks emulator.</div>';
+    updateStatus(s);
+    if(s.playlist_ready && !videoStarted) startVideo();
+  }catch(e){document.getElementById('state').textContent='Chyba: '+e}
+}
+async function selectDevice(serial){
+  document.getElementById('state').textContent='Spouštím '+serial+'…';
+  await fetch('/api/select',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({serial})});
+  videoStarted=false;
+  startVideo(true);
+  setTimeout(load,800);
+}
+function startVideo(force=false){
+  if(videoStarted && !force) return;
+  videoStarted=true;
+  const v=document.getElementById('v');
+  if(h){h.destroy();h=null}
+  v.pause(); v.removeAttribute('src'); v.load();
+  const src='/stream.m3u8?v='+Date.now();
+  if(v.canPlayType('application/vnd.apple.mpegurl')){
+    v.src=src; v.play().catch(()=>{});
+  }else if(window.Hls&&Hls.isSupported()){
+    h=new Hls({lowLatencyMode:true,maxLiveSyncPlaybackRate:1.2,liveSyncDurationCount:2,liveMaxLatencyDurationCount:4});
+    h.on(Hls.Events.MANIFEST_PARSED,()=>v.play().catch(()=>{}));
+    h.on(Hls.Events.ERROR,(e,data)=>{
+      if(data.fatal){
+        h.destroy(); h=null; videoStarted=false;
+        setTimeout(()=>startVideo(true),1000);
+      }
+    });
+    h.loadSource(src); h.attachMedia(v);
+  }
+}
+function updateStatus(s){document.getElementById('status').textContent=JSON.stringify(s,null,2)}
+async function status(){
+  if(statusBusy)return; statusBusy=true;
+  try{
+    let s=await fetch('/api/status',{cache:'no-store'}).then(r=>r.json()); updateStatus(s);
+    if(s.playlist_ready && !videoStarted) startVideo();
+  }finally{statusBusy=false}
+}
+load(); setInterval(status,2000);
+</script></body></html>'''
 
 
 def main():
