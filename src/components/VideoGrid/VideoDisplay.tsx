@@ -2,6 +2,7 @@ import { useControlsContext } from '@/contexts/useControls';
 import { useAudioGamepadVibration } from '@/hooks/useAudioGamepadVibration';
 import { applyMediaAudio } from '@/lib/audioControls';
 import { isDisplaySlot } from '@/lib/displayMedia';
+import type { VideoSlot } from '@/lib/displayMedia';
 import { findVibrationGamepad, vibrateGamepad } from '@/lib/gamepadVibration';
 import { normalizeRemoteVideo, resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { CloseIcon } from '@chakra-ui/icons';
@@ -31,6 +32,8 @@ import {
 import { DragEvent, useEffect, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 import { DisplayMediaPlayer } from './DisplayMediaPlayer';
+
+const DUPLICATE_SOURCE_EVENT = 'synced:duplicate-source-highlight';
 
 interface VideoDisplayProps {
   index: number;
@@ -76,6 +79,7 @@ export const VideoDisplay = ({
   const [sharingDisplay, setSharingDisplay] = useState(false);
   const [gamepadVibrationEnabled, setGamepadVibrationEnabled] = useState(false);
   const [vibrationSensitivity, setVibrationSensitivity] = useState(2.4);
+  const [isDuplicateHighlighted, setIsDuplicateHighlighted] = useState(false);
   const mediaRootRef = useRef<HTMLDivElement>(null);
   const { status: vibrationStatus, level: vibrationLevel } = useAudioGamepadVibration({
     stream: isDisplay ? displayStream : null,
@@ -86,6 +90,16 @@ export const VideoDisplay = ({
   useEffect(() => {
     if (!isDisplay || !displayStream) setGamepadVibrationEnabled(false);
   }, [displayStream, isDisplay]);
+
+  useEffect(() => {
+    const handleDuplicateHighlight = (event: Event) => {
+      const detail = (event as CustomEvent<{ slotIndexes?: number[] }>).detail;
+      setIsDuplicateHighlighted(Boolean(detail?.slotIndexes?.includes(index)));
+    };
+
+    window.addEventListener(DUPLICATE_SOURCE_EVENT, handleDuplicateHighlight);
+    return () => window.removeEventListener(DUPLICATE_SOURCE_EVENT, handleDuplicateHighlight);
+  }, [index]);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,6 +137,35 @@ export const VideoDisplay = ({
     setIsUrlDialogOpen(true);
   };
 
+  const placeRemoteVideo = (video: VideoSlot, fromManualDialog = false) => {
+    const duplicateSlotIndexes = findDuplicateSlotIndexes(slots, index, video);
+    if (!duplicateSlotIndexes.length) {
+      setSlotVideo(index, video);
+      if (fromManualDialog) setIsUrlDialogOpen(false);
+      return;
+    }
+
+    if (fromManualDialog) setIsUrlDialogOpen(false);
+    dispatchDuplicateHighlight(duplicateSlotIndexes);
+
+    // Give React one paint so the already-running slot visibly turns red before
+    // the native confirmation dialog is shown.
+    window.setTimeout(() => {
+      const slotLabels = duplicateSlotIndexes.map((slotIndex) => `Slot ${slotIndex + 1}`).join(', ');
+      const confirmed = window.confirm(
+        `Zdroj „${video.name}“ už běží (${slotLabels}).\n\nOpravdu ho chceš přidat znovu do Slotu ${index + 1}?`
+      );
+
+      if (confirmed) {
+        setSlotVideo(index, video);
+      } else if (fromManualDialog) {
+        setIsUrlDialogOpen(true);
+      }
+
+      dispatchDuplicateHighlight([]);
+    }, 80);
+  };
+
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'copy';
@@ -152,7 +195,7 @@ export const VideoDisplay = ({
       return;
     }
 
-    setSlotVideo(index, video);
+    placeRemoteVideo(video);
   };
 
   const handleManualUrlSubmit = () => {
@@ -168,8 +211,7 @@ export const VideoDisplay = ({
       return;
     }
 
-    setSlotVideo(index, video);
-    setIsUrlDialogOpen(false);
+    placeRemoteVideo(video, true);
   };
 
   const handleStartDisplayShare = async () => {
@@ -261,280 +303,305 @@ export const VideoDisplay = ({
   return (
     <>
       <GridItem
-      w="full"
-      h="full"
-      minH={0}
-      minW={0}
-      gridRowStart={gridRowStart}
-      gridRowEnd={gridRowEnd}
-      gridColumnStart={gridColumnStart}
-      gridColumnEnd={gridColumnEnd}
-      borderWidth="1px"
-      borderColor={isDragOver ? 'red.300' : slot ? 'whiteAlpha.300' : 'whiteAlpha.100'}
-      borderRadius="lg"
-      overflow="hidden"
-      pos="relative"
-      bg="black"
-      zIndex={0}
-      transform="scale(1)"
-      transformOrigin="center"
-      transition="transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 220ms ease"
-      willChange="transform"
-      _hover={{
-        transform: 'scale(1.16)',
-        zIndex: 10,
-        borderColor: 'red.300',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(252, 129, 129, 0.42)',
-      }}
-      _focusVisible={{
-        outline: '2px solid',
-        outlineColor: 'red.300',
-        outlineOffset: '3px',
-        zIndex: 10,
-      }}
-      onClick={handleClick}
-      onDragEnter={handleDragOver}
-      onDragOver={handleDragOver}
-      onDragLeave={() => setIsDragOver(false)}
-      onDrop={handleDrop}
-      cursor="pointer"
-    >
-      {slot ? (
-        <Box ref={mediaRootRef} position="absolute" inset={0}>
-          {isDisplay && displayStream ? (
-            <DisplayMediaPlayer
-              stream={displayStream}
-              muted={isFullscreenActive || audio.muted}
-              volume={audio.volume}
-            />
-          ) : loading ? (
-            <Flex h="full" alignItems="center" justifyContent="center" direction="column" gap="2" color="gray.400">
-              <Spinner size="sm" />
-              <Text fontSize="xs">Načítám…</Text>
-            </Flex>
-          ) : resolvedUrl ? (
-            <ReactPlayer
-              width="100%"
-              height="100%"
-              url={resolvedUrl}
-              playing
-              muted={isFullscreenActive || audio.muted}
-              volume={audio.volume}
-              config={{
-                file: {
-                  forceHLS: true,
-                  attributes: {
-                    crossOrigin: 'true',
+        w="full"
+        h="full"
+        minH={0}
+        minW={0}
+        gridRowStart={gridRowStart}
+        gridRowEnd={gridRowEnd}
+        gridColumnStart={gridColumnStart}
+        gridColumnEnd={gridColumnEnd}
+        borderWidth={isDuplicateHighlighted ? '3px' : '1px'}
+        borderColor={
+          isDuplicateHighlighted
+            ? 'red.500'
+            : isDragOver
+              ? 'red.300'
+              : slot
+                ? 'whiteAlpha.300'
+                : 'whiteAlpha.100'
+        }
+        borderRadius="lg"
+        overflow="hidden"
+        pos="relative"
+        bg="black"
+        boxShadow={isDuplicateHighlighted ? '0 0 0 2px rgba(229,62,62,.8), 0 0 34px rgba(229,62,62,.75)' : undefined}
+        zIndex={isDuplicateHighlighted ? 12 : 0}
+        transform="scale(1)"
+        transformOrigin="center"
+        transition="transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 220ms ease"
+        willChange="transform"
+        _hover={{
+          transform: 'scale(1.16)',
+          zIndex: 10,
+          borderColor: 'red.300',
+          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(252, 129, 129, 0.42)',
+        }}
+        _focusVisible={{
+          outline: '2px solid',
+          outlineColor: 'red.300',
+          outlineOffset: '3px',
+          zIndex: 10,
+        }}
+        onClick={handleClick}
+        onDragEnter={handleDragOver}
+        onDragOver={handleDragOver}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={handleDrop}
+        cursor="pointer"
+      >
+        {slot ? (
+          <Box ref={mediaRootRef} position="absolute" inset={0}>
+            {isDisplay && displayStream ? (
+              <DisplayMediaPlayer
+                stream={displayStream}
+                muted={isFullscreenActive || audio.muted}
+                volume={audio.volume}
+              />
+            ) : loading ? (
+              <Flex h="full" alignItems="center" justifyContent="center" direction="column" gap="2" color="gray.400">
+                <Spinner size="sm" />
+                <Text fontSize="xs">Načítám…</Text>
+              </Flex>
+            ) : resolvedUrl ? (
+              <ReactPlayer
+                width="100%"
+                height="100%"
+                url={resolvedUrl}
+                playing
+                muted={isFullscreenActive || audio.muted}
+                volume={audio.volume}
+                config={{
+                  file: {
+                    forceHLS: true,
+                    attributes: {
+                      crossOrigin: 'true',
+                    },
                   },
-                },
-              }}
-              style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
-            />
-          ) : slot && shouldEmbedRemotePage(slot.url) ? (
-            <Box
-              as="iframe"
-              title={slot.name}
-              src={slot.url}
-              position="absolute"
-              inset={0}
-              w="100%"
-              h="100%"
-              border="0"
-              sandbox="allow-scripts allow-forms allow-popups allow-presentation"
-              referrerPolicy="no-referrer"
-              pointerEvents="none"
-            />
-          ) : (
-            <Flex h="full" alignItems="center" justifyContent="center" color="gray.400">
-              <Text fontSize="xs">Zdroj není dostupný.</Text>
-            </Flex>
-          )}
-          <Flex position="absolute" top="2" right="2" alignItems="center" gap="1" flexWrap="wrap" justifyContent="flex-end">
-            <Badge colorScheme={isDisplay ? 'purple' : 'green'} fontSize="0.65rem">
-              {isDisplay ? 'APP' : `SLOT ${index + 1}`}
-            </Badge>
-            <Button
-              size="xs"
-              h="20px"
-              px="2"
-              colorScheme="purple"
-              isLoading={sharingDisplay}
-              loadingText="…"
-              onClick={(event) => {
-                event.stopPropagation();
-                void handleStartDisplayShare();
-              }}
-              aria-label={`${isDisplay ? 'Vyměnit' : 'Sdílet'} okno aplikace ve slotu ${index + 1}`}
-            >
-              {isDisplay ? 'Vyměnit' : 'Okno'}
-            </Button>
-            {isDisplay ? (
+                }}
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+              />
+            ) : slot && shouldEmbedRemotePage(slot.url) ? (
+              <Box
+                as="iframe"
+                title={slot.name}
+                src={slot.url}
+                position="absolute"
+                inset={0}
+                w="100%"
+                h="100%"
+                border="0"
+                sandbox="allow-scripts allow-forms allow-popups allow-presentation"
+                referrerPolicy="no-referrer"
+                pointerEvents="none"
+              />
+            ) : (
+              <Flex h="full" alignItems="center" justifyContent="center" color="gray.400">
+                <Text fontSize="xs">Zdroj není dostupný.</Text>
+              </Flex>
+            )}
+            <Flex position="absolute" top="2" right="2" alignItems="center" gap="1" flexWrap="wrap" justifyContent="flex-end">
+              <Badge colorScheme={isDisplay ? 'purple' : 'green'} fontSize="0.65rem">
+                {isDisplay ? 'APP' : `SLOT ${index + 1}`}
+              </Badge>
               <Button
                 size="xs"
-                minW="38px"
                 h="20px"
                 px="2"
-                colorScheme="red"
+                colorScheme="purple"
+                isLoading={sharingDisplay}
+                loadingText="…"
                 onClick={(event) => {
                   event.stopPropagation();
-                  stopDisplayShare(index);
+                  void handleStartDisplayShare();
                 }}
-                aria-label={`Zastavit sdílení ve slotu ${index + 1}`}
+                aria-label={`${isDisplay ? 'Vyměnit' : 'Sdílet'} okno aplikace ve slotu ${index + 1}`}
               >
-                Stop
+                {isDisplay ? 'Vyměnit' : 'Okno'}
               </Button>
-            ) : (
-              <IconButton
-                aria-label={`Zastavit stream ve slotu ${index + 1}`}
-                icon={<CloseIcon boxSize="2" />}
-                size="xs"
-                minW="20px"
-                h="20px"
-                colorScheme="red"
-                variant="solid"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  clearSlot(index);
-                }}
-              />
+              {isDisplay ? (
+                <Button
+                  size="xs"
+                  minW="38px"
+                  h="20px"
+                  px="2"
+                  colorScheme="red"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    stopDisplayShare(index);
+                  }}
+                  aria-label={`Zastavit sdílení ve slotu ${index + 1}`}
+                >
+                  Stop
+                </Button>
+              ) : (
+                <IconButton
+                  aria-label={`Zastavit stream ve slotu ${index + 1}`}
+                  icon={<CloseIcon boxSize="2" />}
+                  size="xs"
+                  minW="20px"
+                  h="20px"
+                  colorScheme="red"
+                  variant="solid"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    clearSlot(index);
+                  }}
+                />
+              )}
+            </Flex>
+            {isDisplay && (
+              <Flex
+                position="absolute"
+                left="2"
+                top="2"
+                alignItems="center"
+                gap="2"
+                bg="blackAlpha.800"
+                backdropFilter="blur(4px)"
+                px="2"
+                py="1"
+                borderRadius="md"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <Button
+                  size="xs"
+                  h="20px"
+                  px="2"
+                  colorScheme={gamepadVibrationEnabled ? 'pink' : 'gray'}
+                  onClick={handleVibrationToggle}
+                >
+                  {gamepadVibrationEnabled ? 'Vibrace ON' : 'Vibrace'}
+                </Button>
+                <Button size="xs" h="20px" px="2" variant="outline" colorScheme="pink" onClick={handleVibrationTest}>
+                  Test
+                </Button>
+                <Slider
+                  aria-label={`Citlivost vibrací slotu ${index + 1}`}
+                  value={vibrationSensitivity * 10}
+                  onChange={(value) => setVibrationSensitivity(value / 10)}
+                  min={5}
+                  max={50}
+                  step={1}
+                  w="60px"
+                  focusThumbOnChange={false}
+                >
+                  <SliderTrack bg="whiteAlpha.400">
+                    <SliderFilledTrack bg="pink.300" />
+                  </SliderTrack>
+                  <SliderThumb boxSize="10px" />
+                </Slider>
+                {gamepadVibrationEnabled && (
+                  <Badge colorScheme={vibrationStatus === 'running' ? 'green' : 'orange'} fontSize="0.6rem">
+                    {vibrationStatus === 'running' ? `${Math.round(vibrationLevel * 100)}%` : vibrationStatus}
+                  </Badge>
+                )}
+              </Flex>
             )}
-          </Flex>
-          {isDisplay && (
             <Flex
               position="absolute"
               left="2"
-              top="2"
+              right="2"
+              bottom="2"
+              justifyContent="space-between"
               alignItems="center"
               gap="2"
-              bg="blackAlpha.800"
+              bg="blackAlpha.700"
               backdropFilter="blur(4px)"
               px="2"
               py="1"
               borderRadius="md"
-              onClick={(event) => event.stopPropagation()}
             >
-              <Button
-                size="xs"
-                h="20px"
-                px="2"
-                colorScheme={gamepadVibrationEnabled ? 'pink' : 'gray'}
-                onClick={handleVibrationToggle}
+              <Text color="#EEEEEC" fontSize="xs" noOfLines={1} minW={0}>
+                {slot.name}
+              </Text>
+              <Flex
+                alignItems="center"
+                gap="2"
+                flexShrink={0}
+                onClick={(event) => event.stopPropagation()}
+                aria-label={`Ovládání zvuku pro slot ${index + 1}`}
               >
-                {gamepadVibrationEnabled ? 'Vibrace ON' : 'Vibrace'}
-              </Button>
-              <Button size="xs" h="20px" px="2" variant="outline" colorScheme="pink" onClick={handleVibrationTest}>
-                Test
-              </Button>
-              <Slider
-                aria-label={`Citlivost vibrací slotu ${index + 1}`}
-                value={vibrationSensitivity * 10}
-                onChange={(value) => setVibrationSensitivity(value / 10)}
-                min={5}
-                max={50}
-                step={1}
-                w="60px"
-                focusThumbOnChange={false}
-              >
-                <SliderTrack bg="whiteAlpha.400">
-                  <SliderFilledTrack bg="pink.300" />
-                </SliderTrack>
-                <SliderThumb boxSize="10px" />
-              </Slider>
-              {gamepadVibrationEnabled && (
-                <Badge colorScheme={vibrationStatus === 'running' ? 'green' : 'orange'} fontSize="0.6rem">
-                  {vibrationStatus === 'running' ? `${Math.round(vibrationLevel * 100)}%` : vibrationStatus}
-                </Badge>
-              )}
+                <Button
+                  size="xs"
+                  minW="44px"
+                  h="20px"
+                  px="2"
+                  colorScheme={audio.muted ? 'gray' : 'green'}
+                  onClick={handleToggleAudio}
+                  aria-label={audio.muted ? `Zapnout zvuk ve slotu ${index + 1}` : `Ztlumit slot ${index + 1}`}
+                >
+                  {audio.muted ? 'Zvuk' : 'Mute'}
+                </Button>
+                <Slider
+                  aria-label={`Hlasitost slotu ${index + 1}`}
+                  value={audio.volume * 100}
+                  onChange={handleVolumeChange}
+                  min={0}
+                  max={100}
+                  step={1}
+                  w="64px"
+                  focusThumbOnChange={false}
+                >
+                  <SliderTrack bg="whiteAlpha.400">
+                    <SliderFilledTrack bg={audio.muted ? 'gray.400' : 'green.300'} />
+                  </SliderTrack>
+                  <SliderThumb boxSize="10px" />
+                </Slider>
+              </Flex>
             </Flex>
-          )}
-          <Flex
-            position="absolute"
-            left="2"
-            right="2"
-            bottom="2"
-            justifyContent="space-between"
-            alignItems="center"
-            gap="2"
-            bg="blackAlpha.700"
-            backdropFilter="blur(4px)"
-            px="2"
-            py="1"
-            borderRadius="md"
-          >
-            <Text color="#EEEEEC" fontSize="xs" noOfLines={1} minW={0}>
-              {slot.name}
+          </Box>
+        ) : (
+          <Flex h="full" px="2" alignItems="center" justifyContent="center" direction="column" gap="2" color="gray.500" textAlign="center">
+            <Text fontSize="sm" fontWeight="medium">
+              Slot {index + 1}
             </Text>
-            <Flex
-              alignItems="center"
-              gap="2"
-              flexShrink={0}
-              onClick={(event) => event.stopPropagation()}
-              aria-label={`Ovládání zvuku pro slot ${index + 1}`}
-            >
+            <Text fontSize="xs">Vyber vzdálený stream nebo lokální okno aplikace.</Text>
+            <Flex gap="2" flexWrap="wrap" justifyContent="center">
               <Button
                 size="xs"
-                minW="44px"
-                h="20px"
-                px="2"
-                colorScheme={audio.muted ? 'gray' : 'green'}
-                onClick={handleToggleAudio}
-                aria-label={audio.muted ? `Zapnout zvuk ve slotu ${index + 1}` : `Ztlumit slot ${index + 1}`}
+                variant="outline"
+                colorScheme="gray"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setManualUrl(selectedVideo?.url ?? '');
+                  setIsUrlDialogOpen(true);
+                }}
               >
-                {audio.muted ? 'Zvuk' : 'Mute'}
+                URL stream
               </Button>
-              <Slider
-                aria-label={`Hlasitost slotu ${index + 1}`}
-                value={audio.volume * 100}
-                onChange={handleVolumeChange}
-                min={0}
-                max={100}
-                step={1}
-                w="64px"
-                focusThumbOnChange={false}
+              <Button
+                size="xs"
+                colorScheme="purple"
+                isLoading={sharingDisplay}
+                loadingText="Výběr…"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleStartDisplayShare();
+                }}
               >
-                <SliderTrack bg="whiteAlpha.400">
-                  <SliderFilledTrack bg={audio.muted ? 'gray.400' : 'green.300'} />
-                </SliderTrack>
-                <SliderThumb boxSize="10px" />
-              </Slider>
+                App/Window Share
+              </Button>
             </Flex>
           </Flex>
-        </Box>
-      ) : (
-        <Flex h="full" px="2" alignItems="center" justifyContent="center" direction="column" gap="2" color="gray.500" textAlign="center">
-          <Text fontSize="sm" fontWeight="medium">
-            Slot {index + 1}
-          </Text>
-          <Text fontSize="xs">Vyber vzdálený stream nebo lokální okno aplikace.</Text>
-          <Flex gap="2" flexWrap="wrap" justifyContent="center">
-            <Button
-              size="xs"
-              variant="outline"
-              colorScheme="gray"
-              onClick={(event) => {
-                event.stopPropagation();
-                setManualUrl(selectedVideo?.url ?? '');
-                setIsUrlDialogOpen(true);
-              }}
-            >
-              URL stream
-            </Button>
-            <Button
-              size="xs"
-              colorScheme="purple"
-              isLoading={sharingDisplay}
-              loadingText="Výběr…"
-              onClick={(event) => {
-                event.stopPropagation();
-                void handleStartDisplayShare();
-              }}
-            >
-              App/Window Share
-            </Button>
-          </Flex>
-        </Flex>
-      )}
+        )}
+
+        {isDuplicateHighlighted && (
+          <Box
+            position="absolute"
+            inset={0}
+            zIndex={30}
+            pointerEvents="none"
+            bg="rgba(229, 62, 62, 0.20)"
+            boxShadow="inset 0 0 0 4px rgba(245, 101, 101, 0.95)"
+          >
+            <Badge position="absolute" top="2" left="2" colorScheme="red" fontSize="0.72rem" px="2" py="1">
+              DUPLICITA · SLOT {index + 1}
+            </Badge>
+          </Box>
+        )}
       </GridItem>
+
       <Modal isOpen={isUrlDialogOpen} onClose={() => setIsUrlDialogOpen(false)} isCentered>
         <ModalOverlay />
         <ModalContent bg="#111" color="#EEEEEC" borderWidth="1px" borderColor="whiteAlpha.300">
@@ -579,4 +646,42 @@ export const VideoDisplay = ({
       </Modal>
     </>
   );
+};
+
+const dispatchDuplicateHighlight = (slotIndexes: number[]) => {
+  window.dispatchEvent(new CustomEvent(DUPLICATE_SOURCE_EVENT, { detail: { slotIndexes } }));
+};
+
+const findDuplicateSlotIndexes = (slots: (VideoSlot | null)[], targetIndex: number, incoming: VideoSlot): number[] => {
+  const incomingKeys = sourceKeys(incoming);
+  if (!incomingKeys.size) return [];
+
+  return slots.flatMap((existing, slotIndex) => {
+    if (slotIndex === targetIndex || !existing || isDisplaySlot(existing)) return [];
+    const existingKeys = sourceKeys(existing);
+    return Array.from(incomingKeys).some((key) => existingKeys.has(key)) ? [slotIndex] : [];
+  });
+};
+
+const sourceKeys = (slot: VideoSlot): Set<string> => {
+  const keys = new Set<string>();
+  for (const rawUrl of [slot.url, slot.playbackUrl]) {
+    if (!rawUrl) continue;
+    const key = canonicalSourceKey(rawUrl);
+    if (key) keys.add(key);
+  }
+  return keys;
+};
+
+const canonicalSourceKey = (rawUrl: string): string => {
+  try {
+    const url = new URL(rawUrl);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+    const pathname = decodeURIComponent(url.pathname)
+      .replace(/\/{2,}/g, '/')
+      .replace(/\/$/, '') || '/';
+    return `${hostname}${pathname.toLowerCase()}`;
+  } catch {
+    return rawUrl.trim().toLowerCase();
+  }
 };
