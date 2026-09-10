@@ -18,33 +18,16 @@ def binary(name, fallback):
 
 
 def devices(adb):
-    """Return BlueStacks ADB devices. hd-adb may print spaces instead of tabs."""
-    try:
-        subprocess.run([adb, "start-server"], capture_output=True, text=True, check=False, timeout=10)
-        r = subprocess.run([adb, "devices", "-l"], capture_output=True, text=True, check=False, timeout=10)
-    except Exception:
-        return []
-
+    r = subprocess.run([adb, "devices", "-l"], capture_output=True, text=True, check=False)
     out = []
     for line in r.stdout.splitlines():
         parts = line.split()
-        if len(parts) < 2 or parts[0] == "List":
+        if len(parts) < 2 or parts[1] != "device":
             continue
-        serial, state = parts[0], parts[1]
-        if state != "device":
-            continue
-        attrs = {}
-        for item in parts[2:]:
-            if ":" in item:
-                k, v = item.split(":", 1)
-                attrs[k] = v
-        out.append({
-            "serial": serial,
-            "model": attrs.get("model", "unknown"),
-            "product": attrs.get("product", "unknown"),
-            "device": attrs.get("device", "unknown"),
-            "state": state,
-        })
+        serial = parts[0]
+        model = next((x.split(":", 1)[1] for x in parts[1:] if x.startswith("model:")), "unknown")
+        product = next((x.split(":", 1)[1] for x in parts[1:] if x.startswith("product:")), "unknown")
+        out.append({"serial": serial, "model": model, "product": product, "state": "device"})
     return out
 
 
@@ -150,7 +133,7 @@ class Streamer:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "EmulatorStreamWrapper/0.4"
+    server_version = "EmulatorStreamWrapper/0.5"
     def json(self, code, obj):
         b=json.dumps(obj, ensure_ascii=False).encode(); self.send_response(code); self.send_header("Content-Type","application/json; charset=utf-8"); self.send_header("Access-Control-Allow-Origin","*"); self.send_header("Cache-Control","no-store"); self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b)
     def body(self):
@@ -167,7 +150,10 @@ class Handler(BaseHTTPRequestHandler):
         if self.path=="/api/status": return self.json(200,{"ok":True,**self.server.stream.status()})
         clean=self.path.split("?",1)[0]
         if clean=="/stream.m3u8": return self.file(self.server.stream.root/"stream.m3u8","application/vnd.apple.mpegurl")
-        if clean.startswith("/stream_") and clean.endswith(".ts"): return self.file(self.server.stream.root/Path(clean).name,"video/mp2t")
+        if clean.startswith("/stream") and clean.endswith(".ts"):
+            name=Path(clean).name
+            if name.startswith("stream"):
+                return self.file(self.server.stream.root/name,"video/mp2t")
         if self.path=="/":
             html=PAGE.encode(); self.send_response(200); self.send_header("Content-Type","text/html; charset=utf-8"); self.send_header("Content-Length",str(len(html))); self.end_headers(); self.wfile.write(html); return
         return self.json(404,{"error":"not found"})
