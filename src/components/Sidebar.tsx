@@ -5,19 +5,21 @@ import { useControlsContext } from '@/contexts/useControls';
 import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { AddIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, Input, Spinner, Text, useToast } from '@chakra-ui/react';
+import { DragEvent, useEffect, useState } from 'react';
 import ReactPlayer from 'react-player';
-import { useEffect, useState } from 'react';
 
 const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com', 'cam4.com', 'myfreecams.com', 'youtube.com'];
+const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 
 export const Sidebar = () => {
   const toast = useToast();
-  const { channels, isLoadingSource, sourceError, loadSource } = useChannelsContext();
-  const { selectedVideo, setSelectedVideo } = useControlsContext();
+  const { channels, isLoadingSource, sourceError, loadSource, saveChannelToPlaylist } = useChannelsContext();
+  const { selectedVideo, setSelectedVideo, slots } = useControlsContext();
   const [minimized, setMinimized] = useState<boolean>(false);
   const [sourceUrl, setSourceUrl] = useState('');
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [isPreviewDropActive, setIsPreviewDropActive] = useState(false);
   const currentStreamCount = Object.values(channels).reduce((sum, group) => sum + group.length, 0);
 
   useEffect(() => {
@@ -46,6 +48,56 @@ export const Sidebar = () => {
       cancelled = true;
     };
   }, [selectedVideo?.playbackUrl, selectedVideo?.url]);
+
+  const handlePreviewDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!Array.from(event.dataTransfer.types).includes(SLOT_DRAG_TYPE)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    setIsPreviewDropActive(true);
+  };
+
+  const handlePreviewDragLeave = () => {
+    setIsPreviewDropActive(false);
+  };
+
+  const handlePreviewDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsPreviewDropActive(false);
+
+    const rawIndex = event.dataTransfer.getData(SLOT_DRAG_TYPE);
+    const index = Number.parseInt(rawIndex, 10);
+    if (!Number.isInteger(index) || index < 0 || index >= slots.length) return;
+
+    const slot = slots[index];
+    if (!slot?.url) return;
+
+    setSelectedVideo({
+      name: slot.name,
+      url: slot.url,
+      ...(slot.playbackUrl ? { playbackUrl: slot.playbackUrl } : {}),
+    });
+
+    toast({
+      title: 'Stream přenesen do Preview',
+      description: slot.name,
+      status: 'success',
+      duration: 1600,
+      isClosable: false,
+    });
+  };
+
+  const handleSavePreview = () => {
+    if (!selectedVideo?.url) return;
+    const category = saveChannelToPlaylist(selectedVideo);
+    toast({
+      title: 'Uloženo do playlistu',
+      description: `${selectedVideo.name} → ${category}`,
+      status: 'success',
+      duration: 2200,
+      isClosable: true,
+    });
+  };
 
   const handleSourceSubmit = async () => {
     if (!sourceUrl.trim()) return;
@@ -110,10 +162,10 @@ export const Sidebar = () => {
 
       {!minimized && (
         <Flex flexDir="column" gap="3" minH={0} flex="1" overflow="hidden">
-          <Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="3">
+          <Box borderWidth="1px" borderColor={isPreviewDropActive ? 'cyan.300' : 'whiteAlpha.200'} borderRadius="lg" bg="blackAlpha.300" p="3">
             <Flex justifyContent="space-between" alignItems="center" mb="2">
               <Box minW={0}>
-                <Text color="#EEEEEC" fontWeight="semibold">
+                <Text color="#EEEEEE" fontWeight="semibold">
                   Preview
                 </Text>
                 <Text color="gray.400" fontSize="sm" noOfLines={1}>
@@ -123,7 +175,18 @@ export const Sidebar = () => {
               <Badge colorScheme={selectedVideo ? 'green' : 'gray'}>{selectedVideo ? 'ready' : 'empty'}</Badge>
             </Flex>
 
-            <Box borderRadius="md" overflow="hidden" bg="black" borderWidth="1px" borderColor="whiteAlpha.200">
+            <Box
+              borderRadius="md"
+              overflow="hidden"
+              bg="black"
+              borderWidth="2px"
+              borderColor={isPreviewDropActive ? 'cyan.300' : 'whiteAlpha.200'}
+              boxShadow={isPreviewDropActive ? '0 0 0 2px rgba(34,211,238,.35), 0 0 24px rgba(34,211,238,.25)' : undefined}
+              onDragEnter={handlePreviewDragOver}
+              onDragOver={handlePreviewDragOver}
+              onDragLeave={handlePreviewDragLeave}
+              onDrop={handlePreviewDrop}
+            >
               {previewLoading ? (
                 <Flex h="170px" alignItems="center" justifyContent="center" direction="column" gap="2" color="gray.400">
                   <Spinner size="sm" />
@@ -148,6 +211,13 @@ export const Sidebar = () => {
                     }}
                     style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
                   />
+                  {isPreviewDropActive && (
+                    <Flex position="absolute" inset={0} alignItems="center" justifyContent="center" bg="blackAlpha.700" pointerEvents="none">
+                      <Badge colorScheme="cyan" fontSize="sm" px="3" py="2">
+                        Pusť stream sem
+                      </Badge>
+                    </Flex>
+                  )}
                 </Box>
               ) : selectedVideo && shouldEmbedRemotePage(selectedVideo.url) ? (
                 <Box
@@ -162,9 +232,9 @@ export const Sidebar = () => {
                   pointerEvents="none"
                 />
               ) : (
-                <Flex h="170px" alignItems="center" justifyContent="center" direction="column" gap="1" color="gray.500">
+                <Flex h="170px" alignItems="center" justifyContent="center" direction="column" gap="1" color={isPreviewDropActive ? 'cyan.200' : 'gray.500'}>
                   <Image src="/favicon.ico" alt="preview" boxSize="28px" opacity={0.6} />
-                  <Text fontSize="sm">Žádný aktivní náhled</Text>
+                  <Text fontSize="sm">{isPreviewDropActive ? 'Pusť stream sem' : 'Žádný aktivní náhled'}</Text>
                 </Flex>
               )}
             </Box>
@@ -173,9 +243,14 @@ export const Sidebar = () => {
               <Text color="#EEEEEC" fontSize="sm" noOfLines={1} flex="1">
                 {selectedVideo?.name ?? ' '}
               </Text>
-              <Button size="xs" variant="outline" onClick={() => setSelectedVideo(null)} isDisabled={!selectedVideo}>
-                Clear
-              </Button>
+              <Flex gap="2">
+                <Button size="xs" colorScheme="green" onClick={handleSavePreview} isDisabled={!selectedVideo}>
+                  Uložit do playlistu
+                </Button>
+                <Button size="xs" variant="outline" onClick={() => setSelectedVideo(null)} isDisabled={!selectedVideo}>
+                  Clear
+                </Button>
+              </Flex>
             </Flex>
           </Box>
 
