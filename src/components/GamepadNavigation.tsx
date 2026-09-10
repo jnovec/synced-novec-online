@@ -16,6 +16,9 @@ export const GamepadNavigation = () => {
     let cancelled = false;
 
     const movePreview = (direction: -1 | 1) => {
+      // FullscreenVideoViewer owns horizontal navigation while it is open.
+      if (document.querySelector('[data-synced-fullscreen-viewer="true"]')) return;
+
       const occupied = slots
         .map((slot, index) => (slot && slot.sourceType !== 'display' ? index : -1))
         .filter((index) => index >= 0);
