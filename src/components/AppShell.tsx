@@ -1,3 +1,4 @@
+import { GamepadNavigation } from '@/components/GamepadNavigation';
 import { Sidebar } from '@/components/Sidebar';
 import { SessionUrlLoader } from '@/components/SessionUrlLoader';
 import { Box, Flex } from '@chakra-ui/react';
@@ -10,6 +11,7 @@ export const AppShell = ({ children }: AppShellProps) => {
   return (
     <>
       <SessionUrlLoader />
+      <GamepadNavigation />
       <Flex w="100vw" h="100vh" bg="#050505" overflow="hidden">
         <Sidebar />
         <Box flex="1" minW="0" minH="0" p="3" bg="#0A0A0A">
