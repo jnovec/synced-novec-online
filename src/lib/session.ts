@@ -4,7 +4,7 @@ import { isDisplaySlot } from './displayMedia.ts';
 import type { VideoSlot } from './displayMedia.ts';
 
 export const SESSION_VERSION = 1;
-export const SESSION_SLOT_COUNT = 9;
+export const SESSION_SLOT_COUNT = 18;
 export const DEFAULT_SESSION_SHARE_ORIGIN = 'https://synced.novec.online';
 
 export interface AppSession {
@@ -76,7 +76,7 @@ export const normalizeAppSession = (value: unknown): AppSession => {
     version: SESSION_VERSION,
     name: typeof session.name === 'string' && session.name.trim() ? session.name.trim() : 'Importovaná session',
     createdAt: typeof session.createdAt === 'string' ? session.createdAt : new Date().toISOString(),
-    gridSize: typeof session.gridSize === 'number' && [1, 2, 3, 4, 5, 6, 7, 9].includes(session.gridSize)
+    gridSize: typeof session.gridSize === 'number' && [1, 2, 3, 4, 5, 6, 7, 9, 10, 16, 18].includes(session.gridSize)
       ? session.gridSize
       : 9,
     slots: Array.from({ length: SESSION_SLOT_COUNT }, (_, index) => normalizeSlot(session.slots?.[index])),
