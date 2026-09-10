@@ -41,7 +41,7 @@ export const SettingsAccordionItem = () => {
   const { gridSize, setGridSize, gridSizeMap, slots } = useControlsContext();
   const possibleGridSizes = Object.keys(gridSizeMap)
     .map((key) => parseInt(key, 10))
-    .filter((size) => size <= 9);
+    .filter((size) => size <= 18);
   const [gridSizeIndex, setGridSizeIndex] = useState<number>(possibleGridSizes.findIndex((size) => size === gridSize));
   const [playlistUrl, setPlaylistUrl] = useState('');
   const [isImportingPlaylist, setIsImportingPlaylist] = useState(false);
