@@ -29,12 +29,20 @@ interface FullscreenVideoViewerProps {
   onClose: () => void;
 }
 
+const GAMEPAD_LEFT_BUTTON = 14;
+const GAMEPAD_RIGHT_BUTTON = 15;
+const GAMEPAD_STICK_DEADZONE = 0.55;
+const GAMEPAD_REPEAT_MS = 260;
+
 export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: FullscreenVideoViewerProps) => {
   const { audioSettings, displayStreams, setSlotMuted, setSlotVolume } = useControlsContext();
   const [currentIndex, setCurrentIndex] = useState<number | null>(initialIndex);
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const mediaRootRef = useRef<HTMLDivElement>(null);
+  const gamepadStateRef = useRef({ left: false, right: false });
+  const gamepadLastMoveRef = useRef(0);
+  const goRef = useRef<(direction: -1 | 1) => void>(() => undefined);
 
   const occupiedIndexes = useMemo(() => slots.flatMap((slot, index) => (slot ? [index] : [])), [slots]);
   const currentSlot = currentIndex === null ? null : slots[currentIndex];
@@ -45,6 +53,59 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
   useEffect(() => {
     if (isOpen) setCurrentIndex(initialIndex);
   }, [initialIndex, isOpen]);
+
+  const go = (direction: -1 | 1) => {
+    if (currentIndex === null || occupiedIndexes.length < 2) return;
+    const position = occupiedIndexes.indexOf(currentIndex);
+    const nextPosition = (position + direction + occupiedIndexes.length) % occupiedIndexes.length;
+    setCurrentIndex(occupiedIndexes[nextPosition]);
+  };
+
+  goRef.current = go;
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    gamepadStateRef.current = { left: false, right: false };
+    gamepadLastMoveRef.current = 0;
+
+    let cancelled = false;
+    let frameId: number | null = null;
+
+    const pollGamepad = () => {
+      if (cancelled) return;
+
+      const gamepad = Array.from(navigator.getGamepads?.() ?? []).find(Boolean);
+      if (gamepad) {
+        const left = Boolean(gamepad.buttons[GAMEPAD_LEFT_BUTTON]?.pressed)
+          || (gamepad.axes[0] ?? 0) < -GAMEPAD_STICK_DEADZONE;
+        const right = Boolean(gamepad.buttons[GAMEPAD_RIGHT_BUTTON]?.pressed)
+          || (gamepad.axes[0] ?? 0) > GAMEPAD_STICK_DEADZONE;
+        const previous = gamepadStateRef.current;
+        const now = performance.now();
+
+        if ((left && !previous.left) || (right && !previous.right)) {
+          goRef.current(left ? -1 : 1);
+          gamepadLastMoveRef.current = now;
+        } else if ((left || right) && now - gamepadLastMoveRef.current >= GAMEPAD_REPEAT_MS) {
+          goRef.current(left ? -1 : 1);
+          gamepadLastMoveRef.current = now;
+        }
+
+        gamepadStateRef.current = { left, right };
+      } else {
+        gamepadStateRef.current = { left: false, right: false };
+      }
+
+      frameId = window.requestAnimationFrame(pollGamepad);
+    };
+
+    frameId = window.requestAnimationFrame(pollGamepad);
+    return () => {
+      cancelled = true;
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,13 +130,6 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
     };
   }, [currentSlot?.playbackUrl, currentSlot?.url, isDisplay, isOpen]);
 
-  const go = (direction: -1 | 1) => {
-    if (currentIndex === null || occupiedIndexes.length < 2) return;
-    const position = occupiedIndexes.indexOf(currentIndex);
-    const nextPosition = (position + direction + occupiedIndexes.length) % occupiedIndexes.length;
-    setCurrentIndex(occupiedIndexes[nextPosition]);
-  };
-
   const hasNavigation = occupiedIndexes.length > 1;
 
   const handleToggleAudio = () => {
@@ -97,7 +151,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="full" motionPreset="slideInBottom" preserveScrollBarGap>
       <ModalContent bg="#030303" m="0" borderRadius="0" overflow="hidden">
-        <ModalBody ref={mediaRootRef} p="0" position="relative" display="flex" alignItems="center" justifyContent="center">
+        <ModalBody ref={mediaRootRef} p="0" position="relative" display="flex" alignItems="center" justifyContent="center" data-synced-fullscreen-viewer="true">
           {isDisplay && currentDisplayStream && audio ? (
             <Box position="absolute" inset={0}>
               <DisplayMediaPlayer stream={currentDisplayStream} muted={audio.muted} volume={audio.volume} />
