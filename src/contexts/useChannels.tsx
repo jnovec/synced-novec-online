@@ -16,6 +16,7 @@ interface ChannelsContextInterface {
     newChannelUrl: string,
     newChannelLogo: string
   ) => void;
+  saveChannelToPlaylist: (channel: SaveableChannel) => string;
   deleteChannel: (deleteChannelCategory: string, deleteChannelUrl: string) => void;
   clearChannels: () => void;
   loadSource: (sourceUrl: string) => Promise<SourceLoadResult>;
@@ -125,6 +126,42 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
     return setChannels(newChannelsObject);
   };
 
+  const saveChannelToPlaylist = (channel: SaveableChannel): string => {
+    let category = 'saved';
+    try {
+      const hostname = new URL(channel.url).hostname.toLowerCase().replace(/^www\./, '');
+      if (hostname) category = hostname;
+    } catch {
+      // Keep the generic category for malformed/non-URL values.
+    }
+
+    const existing = channels[category] ?? [];
+    if (existing.some((item) => item.url === channel.url)) return category;
+
+    const nextChannelsObject = {
+      ...channels,
+      [category]: [
+        ...existing,
+        {
+          name: channel.name.trim() || 'Stream',
+          location: category,
+          url: channel.url,
+          logo: channel.logo || 'https://via.placeholder.com/50',
+          ...(channel.playbackUrl ? { playbackUrl: channel.playbackUrl } : {}),
+        },
+      ],
+    };
+
+    posthog.capture('channel_saved_from_preview', {
+      category_name: category,
+      channel_name: channel.name,
+      channel_url: channel.url,
+    });
+
+    setChannels(nextChannelsObject);
+    return category;
+  };
+
   const deleteChannel = (deleteChannelCategory: string, deleteChannelUrl: string) => {
     const newChannelsObject = { ...channels };
     const newChannels = [...newChannelsObject[deleteChannelCategory]];
@@ -207,6 +244,7 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
     addCategory,
     deleteCategory,
     addChannel,
+    saveChannelToPlaylist,
     deleteChannel,
     clearChannels,
     loadSource,
@@ -225,6 +263,13 @@ function dedupeByUrl(channels: Channel[]): Channel[] {
     out.push(channel);
   }
   return out.sort((a, b) => (b.viewers ?? 0) - (a.viewers ?? 0));
+}
+
+interface SaveableChannel {
+  name: string;
+  url: string;
+  playbackUrl?: string;
+  logo?: string;
 }
 
 // -------------------------------------------
