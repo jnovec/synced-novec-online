@@ -34,6 +34,7 @@ import ReactPlayer from 'react-player';
 import { DisplayMediaPlayer } from './DisplayMediaPlayer';
 
 const DUPLICATE_SOURCE_EVENT = 'synced:duplicate-source-highlight';
+const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 
 interface VideoDisplayProps {
   index: number;
@@ -61,6 +62,7 @@ export const VideoDisplay = ({
     selectedVideo,
     audioSettings,
     setSlotVideo,
+    swapSlots,
     startDisplayShare,
     stopDisplayShare,
     clearSlot,
@@ -74,6 +76,8 @@ export const VideoDisplay = ({
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isSlotDragOver, setIsSlotDragOver] = useState(false);
+  const [isSlotDragging, setIsSlotDragging] = useState(false);
   const [isUrlDialogOpen, setIsUrlDialogOpen] = useState(false);
   const [manualUrl, setManualUrl] = useState('');
   const [sharingDisplay, setSharingDisplay] = useState(false);
@@ -148,8 +152,6 @@ export const VideoDisplay = ({
     if (fromManualDialog) setIsUrlDialogOpen(false);
     dispatchDuplicateHighlight(duplicateSlotIndexes);
 
-    // Give React one paint so the already-running slot visibly turns red before
-    // the native confirmation dialog is shown.
     window.setTimeout(() => {
       const slotLabels = duplicateSlotIndexes.map((slotIndex) => `Slot ${slotIndex + 1}`).join(', ');
       const confirmed = window.confirm(
@@ -166,15 +168,64 @@ export const VideoDisplay = ({
     }, 80);
   };
 
+  const handleSlotDragStart = (event: DragEvent<HTMLDivElement>) => {
+    if (!slot) {
+      event.preventDefault();
+      return;
+    }
+
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button, input, [role="slider"]')) {
+      event.preventDefault();
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData(SLOT_DRAG_TYPE, String(index));
+    event.dataTransfer.setData('text/plain', slot.name);
+    setIsSlotDragging(true);
+  };
+
+  const handleSlotDragEnd = () => {
+    setIsSlotDragging(false);
+    setIsDragOver(false);
+    setIsSlotDragOver(false);
+  };
+
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
-    setIsDragOver(true);
+    const isSlotMove = Array.from(event.dataTransfer.types).includes(SLOT_DRAG_TYPE);
+    event.dataTransfer.dropEffect = isSlotMove ? 'move' : 'copy';
+    setIsSlotDragOver(isSlotMove);
+    setIsDragOver(!isSlotMove);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+    setIsSlotDragOver(false);
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    event.stopPropagation();
     setIsDragOver(false);
+    setIsSlotDragOver(false);
+
+    const draggedSlotValue = event.dataTransfer.getData(SLOT_DRAG_TYPE);
+    if (draggedSlotValue) {
+      const fromIndex = Number.parseInt(draggedSlotValue, 10);
+      if (Number.isInteger(fromIndex) && fromIndex >= 0 && fromIndex < slots.length && fromIndex !== index) {
+        swapSlots(fromIndex, index);
+        toast({
+          title: `Slot ${fromIndex + 1} ↔ Slot ${index + 1}`,
+          description: 'Pozice oken byly prohozeny.',
+          status: 'success',
+          duration: 1400,
+          isClosable: false,
+        });
+      }
+      return;
+    }
 
     const url =
       event.dataTransfer.getData('videoUrl') ||
@@ -311,26 +362,38 @@ export const VideoDisplay = ({
         gridRowEnd={gridRowEnd}
         gridColumnStart={gridColumnStart}
         gridColumnEnd={gridColumnEnd}
-        borderWidth={isDuplicateHighlighted ? '3px' : '1px'}
+        borderWidth={isDuplicateHighlighted || isSlotDragOver ? '3px' : '1px'}
         borderColor={
           isDuplicateHighlighted
             ? 'red.500'
-            : isDragOver
-              ? 'red.300'
-              : slot
-                ? 'whiteAlpha.300'
-                : 'whiteAlpha.100'
+            : isSlotDragOver
+              ? 'cyan.300'
+              : isDragOver
+                ? 'red.300'
+                : slot
+                  ? 'whiteAlpha.300'
+                  : 'whiteAlpha.100'
         }
         borderRadius="lg"
         overflow="hidden"
         pos="relative"
         bg="black"
-        boxShadow={isDuplicateHighlighted ? '0 0 0 2px rgba(229,62,62,.8), 0 0 34px rgba(229,62,62,.75)' : undefined}
-        zIndex={isDuplicateHighlighted ? 12 : 0}
+        opacity={isSlotDragging ? 0.55 : 1}
+        boxShadow={
+          isDuplicateHighlighted
+            ? '0 0 0 2px rgba(229,62,62,.8), 0 0 34px rgba(229,62,62,.75)'
+            : isSlotDragOver
+              ? '0 0 0 2px rgba(103,232,249,.65), 0 0 30px rgba(34,211,238,.5)'
+              : undefined
+        }
+        zIndex={isDuplicateHighlighted || isSlotDragOver ? 12 : 0}
         transform="scale(1)"
         transformOrigin="center"
-        transition="transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 220ms ease"
+        transition="transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 220ms ease, opacity 160ms ease"
         willChange="transform"
+        draggable={Boolean(slot)}
+        onDragStart={handleSlotDragStart}
+        onDragEnd={handleSlotDragEnd}
         _hover={{
           transform: 'scale(1.16)',
           zIndex: 10,
@@ -346,9 +409,9 @@ export const VideoDisplay = ({
         onClick={handleClick}
         onDragEnter={handleDragOver}
         onDragOver={handleDragOver}
-        onDragLeave={() => setIsDragOver(false)}
+        onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        cursor="pointer"
+        cursor={slot ? 'grab' : 'pointer'}
       >
         {slot ? (
           <Box ref={mediaRootRef} position="absolute" inset={0}>
@@ -584,6 +647,21 @@ export const VideoDisplay = ({
               </Button>
             </Flex>
           </Flex>
+        )}
+
+        {isSlotDragOver && (
+          <Box
+            position="absolute"
+            inset={0}
+            zIndex={29}
+            pointerEvents="none"
+            bg="rgba(34, 211, 238, 0.13)"
+            boxShadow="inset 0 0 0 4px rgba(103, 232, 249, 0.9)"
+          >
+            <Badge position="absolute" top="2" left="2" colorScheme="cyan" fontSize="0.72rem" px="2" py="1">
+              PUSTIT SEM · SLOT {index + 1}
+            </Badge>
+          </Box>
         )}
 
         {isDuplicateHighlighted && (
