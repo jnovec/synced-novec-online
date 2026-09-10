@@ -18,7 +18,7 @@ import posthog from 'posthog-js';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 const DEFAULT_GRID_SIZE = 9;
-const GRID_SLOT_COUNT = 9;
+const GRID_SLOT_COUNT = 18;
 const SLOT_STORAGE_KEY = 'multiscreenchaturbate-slots';
 const PREVIEW_STORAGE_KEY = 'multiscreenchaturbate-preview';
 
@@ -102,9 +102,7 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
     setLocalStorage('gridSize', newSize);
   };
 
-  const isVideoActive = (index: number) => {
-    return activeVideos.has(index);
-  };
+  const isVideoActive = (index: number) => activeVideos.has(index);
 
   const addActiveVideo = (index: number) => {
     const newActiveVideos = new Map(activeVideos);
@@ -267,15 +265,8 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
 
   const gridSizeMap: { [key: string]: GridSizeMapInterface } = useMemo(
     () => ({
-      1: { rows: '1', columns: '1', elements: [{ rowStart: '1', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' }] },
-      2: {
-        rows: '2',
-        columns: '1',
-        elements: [
-          { rowStart: '1', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-        ],
-      },
+      1: uniformGrid(1, 1, 1),
+      2: uniformGrid(2, 1, 2),
       3: {
         rows: '2',
         columns: '2',
@@ -285,16 +276,7 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
           { rowStart: '2', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
         ],
       },
-      4: {
-        rows: '2',
-        columns: '2',
-        elements: [
-          { rowStart: '1', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '1', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-        ],
-      },
+      4: uniformGrid(2, 2, 4),
       5: {
         rows: '4',
         columns: '4',
@@ -331,21 +313,7 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
           { rowStart: '4', rowEnd: 'span 1', colStart: '4', colEnd: 'span 1' },
         ],
       },
-      9: {
-        rows: '3',
-        columns: '3',
-        elements: [
-          { rowStart: '1', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '1', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '1', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-          { rowStart: '3', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '3', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '3', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-        ],
-      },
+      9: uniformGrid(3, 3, 9),
       10: {
         rows: '4',
         columns: '4',
@@ -362,54 +330,8 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
           { rowStart: '4', rowEnd: 'span 1', colStart: '4', colEnd: 'span 1' },
         ],
       },
-      16: {
-        rows: '4',
-        columns: '4',
-        elements: [
-          { rowStart: '1', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '1', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '1', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-          { rowStart: '1', rowEnd: 'span 1', colStart: '4', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '4', colEnd: 'span 1' },
-          { rowStart: '3', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '3', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '3', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-          { rowStart: '3', rowEnd: 'span 1', colStart: '4', colEnd: 'span 1' },
-          { rowStart: '4', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '4', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '4', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-          { rowStart: '4', rowEnd: 'span 1', colStart: '4', colEnd: 'span 1' },
-        ],
-      },
-      20: {
-        rows: '5',
-        columns: '4',
-        elements: [
-          { rowStart: '1', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '1', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '1', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-          { rowStart: '1', rowEnd: 'span 1', colStart: '4', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-          { rowStart: '2', rowEnd: 'span 1', colStart: '4', colEnd: 'span 1' },
-          { rowStart: '3', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '3', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '3', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-          { rowStart: '3', rowEnd: 'span 1', colStart: '4', colEnd: 'span 1' },
-          { rowStart: '4', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '4', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '4', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-          { rowStart: '4', rowEnd: 'span 1', colStart: '4', colEnd: 'span 1' },
-          { rowStart: '5', rowEnd: 'span 1', colStart: '1', colEnd: 'span 1' },
-          { rowStart: '5', rowEnd: 'span 1', colStart: '2', colEnd: 'span 1' },
-          { rowStart: '5', rowEnd: 'span 1', colStart: '3', colEnd: 'span 1' },
-          { rowStart: '5', rowEnd: 'span 1', colStart: '4', colEnd: 'span 1' },
-        ],
-      },
+      16: uniformGrid(4, 4, 16),
+      18: uniformGrid(3, 6, 18),
     }),
     []
   );
@@ -441,10 +363,6 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
   return <ControlsContext.Provider value={providerValue}>{children}</ControlsContext.Provider>;
 };
 
-// -------------------------------------------
-// Helpers / creators
-// -------------------------------------------
-
 const normalizeVideoSlot = (value: unknown): VideoSlot | null => {
   if (!value || typeof value !== 'object') return null;
 
@@ -465,13 +383,9 @@ const normalizeSlots = (value: unknown): (VideoSlot | null)[] => {
     return Array.from({ length: GRID_SLOT_COUNT }, () => null);
   }
 
-  const next = Array.from({ length: GRID_SLOT_COUNT }, (_, index) => normalizeVideoSlot(value[index]));
-  return next;
+  return Array.from({ length: GRID_SLOT_COUNT }, (_, index) => normalizeVideoSlot(value[index]));
 };
 
-// -------------------------------------------
-// Interfaces
-// -------------------------------------------
 interface GridSizeMapInterface {
   rows: string;
   columns: string;
@@ -485,11 +399,20 @@ interface GridSizeElementInterface {
   colEnd: string;
 }
 
+const uniformGrid = (rows: number, columns: number, count: number): GridSizeMapInterface => ({
+  rows: String(rows),
+  columns: String(columns),
+  elements: Array.from({ length: count }, (_, index) => ({
+    rowStart: String(Math.floor(index / columns) + 1),
+    rowEnd: 'span 1',
+    colStart: String((index % columns) + 1),
+    colEnd: 'span 1',
+  })),
+});
+
 const ControlsContext = createContext<ControlsContextInterface>({} as ControlsContextInterface);
 
-export const useControlsContext = () => {
-  return useContext(ControlsContext);
-};
+export const useControlsContext = () => useContext(ControlsContext);
 
 interface ControlsContextProviderProps {
   children: React.ReactNode;
