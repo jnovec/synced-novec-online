@@ -1,4 +1,4 @@
-import { buildBongaListingUrl, isBongaCamsUrl, parseBongaHomepage, parseBongaListing } from '@/lib/bongacams';
+import { buildBongaListingUrl, isBongaCamsUrl, parseBongaListing } from '@/lib/bongacams';
 import {
   buildChaturbateListingUrl,
   isChaturbateUrl,
@@ -88,35 +88,15 @@ const discoverGeneric = async (sourceUrl: URL): Promise<DiscoveryResult> => {
 };
 
 const discoverBongaCams = async (sourceUrl: URL): Promise<DiscoveryResult> => {
-  try {
-    const landing = await fetchPublicText(sourceUrl, {
-      timeoutMs: 20_000,
-      maxBytes: 8_000_000,
-      headers: {
-        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
-      },
-    });
+  const directChannels = await tryBongaListing(sourceUrl);
+  if (directChannels.length) return { channels: directChannels, finalUrl: sourceUrl };
 
-    const homepageChannels = parseBongaHomepage(landing.text, landing.finalUrl);
-    if (homepageChannels.length) {
-      return { channels: homepageChannels, finalUrl: landing.finalUrl };
-    }
-
-    const listingChannels = await tryBongaListing(landing.finalUrl, landing.setCookies);
-    if (listingChannels.length) {
-      return { channels: listingChannels, finalUrl: landing.finalUrl };
-    }
-
-    return {
-      channels: extractVideoChannels(landing.text, landing.finalUrl),
-      finalUrl: landing.finalUrl,
-    };
-  } catch (error) {
-    console.warn('BongaCams homepage request failed', error instanceof Error ? error.message : error);
-    const fallbackChannels = await tryBongaListing(sourceUrl);
-    return { channels: fallbackChannels, finalUrl: sourceUrl };
-  }
+  const landing = await fetchPublicText(sourceUrl, { timeoutMs: 20_000 });
+  const channels = await tryBongaListing(landing.finalUrl, landing.setCookies);
+  return {
+    channels: channels.length ? channels : extractVideoChannels(landing.text, landing.finalUrl),
+    finalUrl: landing.finalUrl,
+  };
 };
 
 const tryBongaListing = async (sourceUrl: URL, setCookies: string[] = []): Promise<DiscoveredChannel[]> => {
