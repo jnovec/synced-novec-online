@@ -18,16 +18,33 @@ def binary(name, fallback):
 
 
 def devices(adb):
-    r = subprocess.run([adb, "devices", "-l"], capture_output=True, text=True, check=False)
+    """Return BlueStacks ADB devices. hd-adb may print spaces instead of tabs."""
+    try:
+        subprocess.run([adb, "start-server"], capture_output=True, text=True, check=False, timeout=10)
+        r = subprocess.run([adb, "devices", "-l"], capture_output=True, text=True, check=False, timeout=10)
+    except Exception:
+        return []
+
     out = []
     for line in r.stdout.splitlines():
-        if "\tdevice" not in line:
-            continue
         parts = line.split()
-        serial = parts[0]
-        model = next((x.split(":", 1)[1] for x in parts[1:] if x.startswith("model:")), "unknown")
-        product = next((x.split(":", 1)[1] for x in parts[1:] if x.startswith("product:")), "unknown")
-        out.append({"serial": serial, "model": model, "product": product, "state": "device"})
+        if len(parts) < 2 or parts[0] == "List":
+            continue
+        serial, state = parts[0], parts[1]
+        if state != "device":
+            continue
+        attrs = {}
+        for item in parts[2:]:
+            if ":" in item:
+                k, v = item.split(":", 1)
+                attrs[k] = v
+        out.append({
+            "serial": serial,
+            "model": attrs.get("model", "unknown"),
+            "product": attrs.get("product", "unknown"),
+            "device": attrs.get("device", "unknown"),
+            "state": state,
+        })
     return out
 
 
