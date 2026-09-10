@@ -70,6 +70,11 @@ a {
   text-decoration: none;
 }
 
+/* Video tiles must keep their grid size when hovered so controls remain clickable. */
+div[draggable="true"] {
+  transform: none !important;
+}
+
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;
