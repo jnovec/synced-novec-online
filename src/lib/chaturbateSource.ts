@@ -19,7 +19,9 @@ export const isChaturbateUrl = (url: URL): boolean => /(^|\.)chaturbate\.com$/i.
 
 export const buildChaturbateListingUrl = (sourceUrl: URL): URL => {
   const listingUrl = new URL('/api/ts/roomlist/room-list/', sourceUrl.origin);
-  listingUrl.searchParams.set('enable_recommendations', 'false');
+  // Keep Chaturbate's own recommendation/ranking logic enabled so the result
+  // is much closer to what the homepage shows instead of forcing a generic list.
+  listingUrl.searchParams.set('enable_recommendations', 'true');
   listingUrl.searchParams.set('limit', '90');
   listingUrl.searchParams.set('offset', '0');
 
@@ -65,7 +67,9 @@ export const parseChaturbateListing = (payload: unknown, sourceUrl: URL): Discov
     });
   }
 
-  return channels.sort((a, b) => (b.viewers ?? 0) - (a.viewers ?? 0));
+  // Preserve the order returned by Chaturbate. Re-sorting by viewer count here
+  // destroys the homepage/recommendation ranking and makes the list look unrelated.
+  return channels;
 };
 
 const chaturbateGender = (url: URL): string => {
