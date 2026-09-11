@@ -14,6 +14,7 @@ export const VideoGrid = () => {
   return (
     <>
       <Grid
+        data-synced-video-grid="true"
         templateRows={`repeat(${layout.rows}, minmax(0, 1fr))`}
         templateColumns={`repeat(${layout.columns}, minmax(0, 1fr))`}
         w="full"
