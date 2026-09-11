@@ -1,7 +1,7 @@
 import { useControlsContext } from '@/contexts/useControls';
 import { useEffect } from 'react';
 
-/** Releases a grid slot when its native video ends or reports a playback error. */
+/** Releases a grid slot when its native video ends, errors, or its stream cannot be resolved. */
 export const StreamSlotHealth = () => {
   const { clearSlot } = useControlsContext();
 
@@ -20,11 +20,24 @@ export const StreamSlotHealth = () => {
       return index >= 0 ? index : null;
     };
 
+    const getFallbackSlotIndexes = () => {
+      const grid = document.querySelector<HTMLElement>('[data-synced-video-grid]');
+      if (!grid) return [];
+
+      return Array.from(grid.children)
+        .map((child, index) => (child.textContent?.includes('Zdroj není dostupný.') ? index : -1))
+        .filter((index) => index >= 0);
+    };
+
     const handleMediaFailure = (event: Event) => {
       const video = event.currentTarget as HTMLVideoElement;
       const index = getSlotIndex(video);
       if (index === null) return;
       clearSlot(index);
+    };
+
+    const releaseUnresolvedSlots = () => {
+      getFallbackSlotIndexes().forEach((index) => clearSlot(index));
     };
 
     const bindVideos = () => {
@@ -34,6 +47,8 @@ export const StreamSlotHealth = () => {
         video.addEventListener('ended', handleMediaFailure);
         video.addEventListener('error', handleMediaFailure);
       });
+
+      releaseUnresolvedSlots();
     };
 
     bindVideos();
