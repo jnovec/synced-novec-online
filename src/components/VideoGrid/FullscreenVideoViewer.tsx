@@ -136,6 +136,28 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        goRef.current(-1);
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        goRef.current(1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
+  useEffect(() => {
     let cancelled = false;
     if (!isOpen || !currentSlot?.url || isDisplay) {
       setResolvedUrl(null);
