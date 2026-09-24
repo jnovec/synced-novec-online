@@ -132,7 +132,8 @@ const extractDisplayName = (context: string, username: string): string => {
 };
 
 const extractViewers = (context: string): number => {
-  const raw = context.match(/(?:["'](?:viewerCount|viewers|watching)["']\s*:\s*|)(\d[\d,.]*)\s*(?:viewers?|watching|users?)?/i)?.[1];
+  const raw = context.match(/["'](?:viewerCount|viewers|watching)["']\s*:\s*["']?(\d[\d,.]*)/i)?.[1]
+    ?? context.match(/(\d[\d,.]*)\s*(?:viewers?|watching|users?)\b/i)?.[1];
   const numeric = Number(raw?.replace(/[,.]/g, '') ?? 0);
   return Number.isFinite(numeric) && numeric >= 0 ? numeric : 0;
 };
