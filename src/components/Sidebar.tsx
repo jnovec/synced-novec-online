@@ -166,9 +166,15 @@ export const Sidebar = () => {
       <Flex justifyContent="space-between" alignItems="center" gap="2">
         {!minimized ? (
           <Box>
-            <Text color="#EEEEEC" fontSize="2xl" fontWeight="bold" lineHeight="1">
-              MultiScreenChaturbate
-            </Text>
+            <Image
+              src="/synced-logo.png"
+              alt="SYNCED"
+              h="32px"
+              w="auto"
+              maxW="230px"
+              objectFit="contain"
+              objectPosition="left center"
+            />
             <Text color="gray.400" fontSize="sm">
               Vlastní webové zdroje + preview
             </Text>
@@ -332,14 +338,14 @@ export const Sidebar = () => {
             <Text color="gray.500" fontSize="xs" mt="2">
               Nalezená videa se uloží do sekce pojmenované podle domény.
             </Text>
-            <Text color="gray.400" fontSize="xs" mt="2">
+            <Box color="gray.400" fontSize="xs" mt="2">
               <Flex gap="1" flexWrap="wrap" alignItems="center">
                 <Text as="span">Podporované weby:</Text>
                 {supportedSourceWebsites.map((website) => (
                   <Button key={website} size="xs" variant="link" color="blue.200" onClick={() => setSourceUrl(website)}>{website}</Button>
                 ))}
               </Flex>
-            </Text>
+            </Box>
           </Box>
 
           <Divider order={3} borderColor="whiteAlpha.300" />
