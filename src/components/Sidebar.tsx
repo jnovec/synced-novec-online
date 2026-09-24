@@ -13,7 +13,7 @@ const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.c
 const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 const defaultChaturbateTags = ['18', 'young'];
 const STREAM_RESOLVE_ATTEMPTS = 3;
-const CHATURBATE_EMBED_LISTING_URL = 'https://chaturbate.com/tours/3/?c=15&campaign=6wVVW&gender=x&p=1&tour=x1Rd&track=default&disable_sound=0';
+const CHATURBATE_EMBED_LISTING_URL = 'https://chaturbate.com/in/?tour=x1Rd&campaign=6wVVW&track=default&c=15&p=1&gender=x';
 
 const waitForRetry = (attempt: number) => new Promise<void>((resolve) => {
   window.setTimeout(resolve, 700 * attempt);
@@ -494,18 +494,17 @@ export const Sidebar = () => {
                   {isChaturbateEmbedOpen ? 'Skrýt embedded seznam' : 'Zobrazit embedded seznam'}
                 </Button>
                 {isChaturbateEmbedOpen && (
-                  <Box mt="2" h="430px" borderWidth="1px" borderColor="whiteAlpha.300" borderRadius="md" overflow="hidden" bg="black">
-                    <Box
-                      as="iframe"
-                      title="Chaturbate embedded seznam"
-                      src={CHATURBATE_EMBED_LISTING_URL}
-                      w="100%"
-                      h="100%"
-                      border="0"
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                    />
-                  </Box>
+                  <Flex mt="2" minH="180px" p="4" borderWidth="1px" borderColor="whiteAlpha.300" borderRadius="md" bg="blackAlpha.400" direction="column" justifyContent="center" alignItems="center" gap="3" textAlign="center">
+                    <Text color="gray.300" fontSize="sm">
+                      Chaturbate tento affiliate seznam technicky blokuje pro vložení do iframe.
+                    </Text>
+                    <Button as="a" href={CHATURBATE_EMBED_LISTING_URL} target="_blank" rel="noreferrer" size="sm" colorScheme="purple">
+                      Otevřít seznam na Chaturbate
+                    </Button>
+                    <Text color="gray.500" fontSize="xs">
+                      Streamy do gridu dál přidáš z načtených tagů níže.
+                    </Text>
+                  </Flex>
                 )}
               </>
             )}
