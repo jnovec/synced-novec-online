@@ -151,7 +151,20 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="full" motionPreset="slideInBottom" preserveScrollBarGap>
       <ModalContent bg="#030303" m="0" borderRadius="0" overflow="hidden">
-        <ModalBody ref={mediaRootRef} p="0" position="relative" display="flex" alignItems="center" justifyContent="center" data-synced-fullscreen-viewer="true">
+        <ModalBody
+          ref={mediaRootRef}
+          p="0"
+          position="relative"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          data-synced-fullscreen-viewer="true"
+          onClick={(event) => {
+            const target = event.target as HTMLElement;
+            if (target.closest('button, input, [role="slider"]')) return;
+            onClose();
+          }}
+        >
           {isDisplay && currentDisplayStream && audio ? (
             <Box position="absolute" inset={0}>
               <DisplayMediaPlayer stream={currentDisplayStream} muted={audio.muted} volume={audio.volume} />
