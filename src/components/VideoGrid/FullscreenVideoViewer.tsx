@@ -258,6 +258,9 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
                     forceHLS: true,
                     attributes: { crossOrigin: 'true' },
                     hlsOptions: {
+                      lowLatencyMode: false,
+                      liveSyncDurationCount: 3,
+                      liveMaxLatencyDurationCount: 10,
                       capLevelToPlayerSize: false,
                       abrEwmaDefaultEstimate: 8_000_000,
                       maxBufferLength: 30,

@@ -35,6 +35,11 @@ import { DisplayMediaPlayer } from './DisplayMediaPlayer';
 
 const DUPLICATE_SOURCE_EVENT = 'synced:duplicate-source-highlight';
 const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
+const STREAM_RESOLVE_ATTEMPTS = 3;
+
+const waitForRetry = (attempt: number) => new Promise<void>((resolve) => {
+  window.setTimeout(resolve, 700 * attempt);
+});
 
 interface VideoDisplayProps {
   index: number;
@@ -75,6 +80,7 @@ export const VideoDisplay = ({
   const audio = audioSettings[index];
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSlotDragOver, setIsSlotDragOver] = useState(false);
   const [isSlotDragging, setIsSlotDragging] = useState(false);
@@ -85,6 +91,7 @@ export const VideoDisplay = ({
   const [vibrationSensitivity, setVibrationSensitivity] = useState(2.4);
   const [isDuplicateHighlighted, setIsDuplicateHighlighted] = useState(false);
   const mediaRootRef = useRef<HTMLDivElement>(null);
+  const playbackFailuresRef = useRef(0);
   const { status: vibrationStatus, level: vibrationLevel } = useAudioGamepadVibration({
     stream: isDisplay ? displayStream : null,
     enabled: gamepadVibrationEnabled,
@@ -116,20 +123,42 @@ export const VideoDisplay = ({
     setLoading(true);
     setResolvedUrl(null);
 
-    resolveRemoteStreamUrl(slot.url, slot.playbackUrl)
-      .then((streamUrl) => {
-        if (cancelled) return;
-        setResolvedUrl(streamUrl);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
+    const resolveStream = async () => {
+      for (let attempt = 1; attempt <= STREAM_RESOLVE_ATTEMPTS; attempt += 1) {
+        try {
+          const streamUrl = await resolveRemoteStreamUrl(slot.url, slot.playbackUrl);
+          if (cancelled) return;
+          if (streamUrl || shouldEmbedRemotePage(slot.url)) {
+            setResolvedUrl(streamUrl);
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // Stream URLs are short-lived and can be rotated while a tile opens.
+        }
+
+        if (attempt < STREAM_RESOLVE_ATTEMPTS) await waitForRetry(attempt);
+      }
+
+      if (!cancelled) setLoading(false);
+    };
+
+    void resolveStream();
 
     return () => {
       cancelled = true;
     };
-  }, [isDisplay, slot?.playbackUrl, slot?.url]);
+  }, [isDisplay, reloadKey, slot?.playbackUrl, slot?.url]);
+
+  useEffect(() => {
+    playbackFailuresRef.current = 0;
+  }, [slot?.playbackUrl, slot?.url]);
+
+  const handlePlayerError = () => {
+    if (playbackFailuresRef.current >= 2) return;
+    playbackFailuresRef.current += 1;
+    setReloadKey((current) => current + 1);
+  };
 
   const handleClick = () => {
     if (slot) {
@@ -440,8 +469,15 @@ export const VideoDisplay = ({
                     attributes: {
                       crossOrigin: 'true',
                     },
+                    hlsOptions: {
+                      lowLatencyMode: false,
+                      liveSyncDurationCount: 3,
+                      liveMaxLatencyDurationCount: 10,
+                      maxBufferLength: 20,
+                    },
                   },
                 }}
+                onError={handlePlayerError}
                 style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
               />
             ) : slot && shouldEmbedRemotePage(slot.url) ? (

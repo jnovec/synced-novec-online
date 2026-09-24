@@ -359,6 +359,11 @@ export const Sidebar = () => {
                         attributes: {
                           crossOrigin: 'true',
                         },
+                        hlsOptions: {
+                          lowLatencyMode: false,
+                          liveSyncDurationCount: 3,
+                          liveMaxLatencyDurationCount: 10,
+                        },
                       },
                     }}
                     onError={handlePreviewPlayerError}
