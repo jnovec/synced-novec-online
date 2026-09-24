@@ -37,8 +37,8 @@ const DUPLICATE_SOURCE_EVENT = 'synced:duplicate-source-highlight';
 const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 const STREAM_RESOLVE_ATTEMPTS = 3;
 
-const waitForRetry = (attempt: number) => new Promise<void>((resolve) => {
-  window.setTimeout(resolve, 700 * attempt);
+const waitFor = (milliseconds: number) => new Promise<void>((resolve) => {
+  window.setTimeout(resolve, milliseconds);
 });
 
 interface VideoDisplayProps {
@@ -77,6 +77,8 @@ export const VideoDisplay = ({
   const slot = slots[index];
   const displayStream = displayStreams[index];
   const isDisplay = isDisplaySlot(slot);
+  const activeRemoteStreamCount = slots.filter((candidate) => candidate?.url && !isDisplaySlot(candidate)).length;
+  const isBusyGrid = activeRemoteStreamCount > 4;
   const audio = audioSettings[index];
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -124,6 +126,10 @@ export const VideoDisplay = ({
     setResolvedUrl(null);
 
     const resolveStream = async () => {
+      // Do not ask the provider and tunnel to open every tile at the same moment.
+      // A later slot starts just after the earlier one has requested its playlist.
+      if (reloadKey === 0 && index > 0) await waitFor(Math.min(index, 8) * 180);
+
       for (let attempt = 1; attempt <= STREAM_RESOLVE_ATTEMPTS; attempt += 1) {
         try {
           const streamUrl = await resolveRemoteStreamUrl(slot.url, slot.playbackUrl);
@@ -137,7 +143,7 @@ export const VideoDisplay = ({
           // Stream URLs are short-lived and can be rotated while a tile opens.
         }
 
-        if (attempt < STREAM_RESOLVE_ATTEMPTS) await waitForRetry(attempt);
+        if (attempt < STREAM_RESOLVE_ATTEMPTS) await waitFor(700 * attempt);
       }
 
       if (!cancelled) setLoading(false);
@@ -148,7 +154,7 @@ export const VideoDisplay = ({
     return () => {
       cancelled = true;
     };
-  }, [isDisplay, reloadKey, slot?.playbackUrl, slot?.url]);
+  }, [index, isDisplay, reloadKey, slot?.playbackUrl, slot?.url]);
 
   useEffect(() => {
     playbackFailuresRef.current = 0;
@@ -473,7 +479,10 @@ export const VideoDisplay = ({
                       lowLatencyMode: false,
                       liveSyncDurationCount: 3,
                       liveMaxLatencyDurationCount: 10,
-                      maxBufferLength: 20,
+                      capLevelToPlayerSize: true,
+                      abrEwmaDefaultEstimate: isBusyGrid ? 1_250_000 : 2_000_000,
+                      maxBufferLength: isBusyGrid ? 8 : 14,
+                      maxMaxBufferLength: isBusyGrid ? 16 : 30,
                     },
                   },
                 }}
