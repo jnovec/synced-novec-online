@@ -163,19 +163,20 @@ export const Sidebar = () => {
       transition="width 0.25s ease"
       overflow="hidden"
     >
-      <Flex justifyContent="space-between" alignItems="center" gap="2">
+      <Flex position="relative" justifyContent="center" alignItems="center" minH="104px">
         {!minimized ? (
-          <Box>
+          <Box textAlign="center">
             <Image
               src="/synced-logo.png"
               alt="SYNCED"
-              h="32px"
+              h="64px"
               w="auto"
-              maxW="230px"
+              maxW="290px"
               objectFit="contain"
-              objectPosition="left center"
+              objectPosition="center"
+              mx="auto"
             />
-            <Text color="gray.400" fontSize="sm">
+            <Text color="gray.400" fontSize="sm" mt="1">
               Vlastní webové zdroje + preview
             </Text>
           </Box>
@@ -186,6 +187,9 @@ export const Sidebar = () => {
         )}
         <IconButton
           size="xs"
+          position="absolute"
+          right="0"
+          top="0"
           aria-label="minimize/maximize"
           icon={minimized ? <Icon as={ChevronRightIcon} /> : <Icon as={ChevronLeftIcon} />}
           onClick={() => setMinimized(!minimized)}
