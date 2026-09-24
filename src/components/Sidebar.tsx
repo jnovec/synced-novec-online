@@ -13,6 +13,7 @@ const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.c
 const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 const defaultChaturbateTags = ['18', 'young'];
 const STREAM_RESOLVE_ATTEMPTS = 3;
+const CHATURBATE_EMBED_LISTING_URL = 'https://chaturbate.com/tours/3/?c=15&campaign=6wVVW&gender=x&p=1&tour=x1Rd&track=default&disable_sound=0';
 
 const waitForRetry = (attempt: number) => new Promise<void>((resolve) => {
   window.setTimeout(resolve, 700 * attempt);
@@ -27,6 +28,7 @@ export const Sidebar = () => {
   const [chaturbateTag, setChaturbateTag] = useState('18');
   const [chaturbateTags, setChaturbateTags] = useState(defaultChaturbateTags);
   const [isLoadingChaturbateTags, setIsLoadingChaturbateTags] = useState(false);
+  const [isChaturbateEmbedOpen, setIsChaturbateEmbedOpen] = useState(false);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -468,25 +470,44 @@ export const Sidebar = () => {
               Nalezená videa se uloží do sekce pojmenované podle domény; Chaturbate podle vybraného tagu.
             </Text>
             {isChaturbateSource && (
-              <Flex mt="2" gap="2" alignItems="center">
-                <Text color="gray.300" fontSize="xs" whiteSpace="nowrap">Tag</Text>
-                <Select
-                  size="xs"
-                  value={chaturbateTag}
-                  onChange={(event) => setChaturbateTag(event.target.value)}
-                  bg="black"
-                  borderColor="whiteAlpha.400"
-                  color="#EEEEEC"
-                  aria-label="Chaturbate tag"
-                >
-                  {chaturbateTags.map((tag) => (
-                    <option key={tag} value={tag}>#{tag}</option>
-                  ))}
-                </Select>
-                <Button size="xs" colorScheme="pink" onClick={() => void handleSourceSubmit()} isLoading={isLoadingSource || isLoadingChaturbateTags}>
-                  Načíst tag
+              <>
+                <Flex mt="2" gap="2" alignItems="center">
+                  <Text color="gray.300" fontSize="xs" whiteSpace="nowrap">Tag</Text>
+                  <Select
+                    size="xs"
+                    value={chaturbateTag}
+                    onChange={(event) => setChaturbateTag(event.target.value)}
+                    bg="black"
+                    borderColor="whiteAlpha.400"
+                    color="#EEEEEC"
+                    aria-label="Chaturbate tag"
+                  >
+                    {chaturbateTags.map((tag) => (
+                      <option key={tag} value={tag}>#{tag}</option>
+                    ))}
+                  </Select>
+                  <Button size="xs" colorScheme="pink" onClick={() => void handleSourceSubmit()} isLoading={isLoadingSource || isLoadingChaturbateTags}>
+                    Načíst tag
+                  </Button>
+                </Flex>
+                <Button mt="2" size="xs" variant="outline" colorScheme="purple" onClick={() => setIsChaturbateEmbedOpen((open) => !open)}>
+                  {isChaturbateEmbedOpen ? 'Skrýt embedded seznam' : 'Zobrazit embedded seznam'}
                 </Button>
-              </Flex>
+                {isChaturbateEmbedOpen && (
+                  <Box mt="2" h="430px" borderWidth="1px" borderColor="whiteAlpha.300" borderRadius="md" overflow="hidden" bg="black">
+                    <Box
+                      as="iframe"
+                      title="Chaturbate embedded seznam"
+                      src={CHATURBATE_EMBED_LISTING_URL}
+                      w="100%"
+                      h="100%"
+                      border="0"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                    />
+                  </Box>
+                )}
+              </>
             )}
             <Box color="gray.400" fontSize="xs" mt="2">
               <Flex gap="1" flexWrap="wrap" alignItems="center">
