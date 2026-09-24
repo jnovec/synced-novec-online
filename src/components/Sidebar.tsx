@@ -14,13 +14,37 @@ const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 export const Sidebar = () => {
   const toast = useToast();
   const { channels, isLoadingSource, sourceError, loadSource, saveChannelToPlaylist } = useChannelsContext();
-  const { selectedVideo, setSelectedVideo, slots } = useControlsContext();
+  const { selectedVideo, setSelectedVideo, slots, setSlotVideo } = useControlsContext();
   const [minimized, setMinimized] = useState<boolean>(false);
   const [sourceUrl, setSourceUrl] = useState('');
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [isPreviewDropActive, setIsPreviewDropActive] = useState(false);
   const currentStreamCount = Object.values(channels).reduce((sum, group) => sum + group.length, 0);
+  const previewCandidates = Object.values(channels).flat();
+  const movePreview = (direction: -1 | 1) => {
+    if (!previewCandidates.length) return;
+    const index = previewCandidates.findIndex((item) => item.url === selectedVideo?.url);
+    const next = (index + direction + previewCandidates.length) % previewCandidates.length;
+    setSelectedVideo(previewCandidates[next]);
+  };
+  const randomizePreview = () => {
+    if (!previewCandidates.length) return;
+    const alternatives = previewCandidates.filter((item) => item.url !== selectedVideo?.url);
+    const choices = alternatives.length ? alternatives : previewCandidates;
+    setSelectedVideo(choices[Math.floor(Math.random() * choices.length)]);
+  };
+  const handlePreviewDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('button')) return;
+    if (!selectedVideo) return;
+    const emptySlot = slots.findIndex((slot) => !slot);
+    if (emptySlot < 0) {
+      toast({ title: 'Všechna okna jsou obsazená', description: 'Uvolni nejdřív některý slot.', status: 'info', duration: 2200 });
+      return;
+    }
+    setSlotVideo(emptySlot, selectedVideo);
+    toast({ title: `Preview přidáno do okna ${emptySlot + 1}`, status: 'success', duration: 1600 });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -162,7 +186,7 @@ export const Sidebar = () => {
 
       {!minimized && (
         <Flex flexDir="column" gap="3" minH={0} flex="1" overflow="hidden">
-          <Box borderWidth="1px" borderColor={isPreviewDropActive ? 'cyan.300' : 'whiteAlpha.200'} borderRadius="lg" bg="blackAlpha.300" p="3">
+          <Box order={2} borderWidth="1px" borderColor={isPreviewDropActive ? 'cyan.300' : 'whiteAlpha.200'} borderRadius="lg" bg="blackAlpha.300" p="3">
             <Flex justifyContent="space-between" alignItems="center" mb="2">
               <Box minW={0}>
                 <Text color="#EEEEEE" fontWeight="semibold">
@@ -182,6 +206,8 @@ export const Sidebar = () => {
               borderWidth="2px"
               borderColor={isPreviewDropActive ? 'cyan.300' : 'whiteAlpha.200'}
               boxShadow={isPreviewDropActive ? '0 0 0 2px rgba(34,211,238,.35), 0 0 24px rgba(34,211,238,.25)' : undefined}
+              position="relative"
+              onDoubleClick={handlePreviewDoubleClick}
               onDragEnter={handlePreviewDragOver}
               onDragOver={handlePreviewDragOver}
               onDragLeave={handlePreviewDragLeave}
@@ -237,6 +263,13 @@ export const Sidebar = () => {
                   <Text fontSize="sm">{isPreviewDropActive ? 'Pusť stream sem' : 'Žádný aktivní náhled'}</Text>
                 </Flex>
               )}
+              <Flex position="absolute" bottom="2" left="0" right="0" justifyContent="space-between" px="2" pointerEvents="none">
+                <IconButton aria-label="Předchozí stream v Preview" icon={<ChevronLeftIcon />} size="sm" colorScheme="blackAlpha" onClick={() => movePreview(-1)} isDisabled={!previewCandidates.length} pointerEvents="auto" />
+                <Button size="xs" colorScheme="purple" onClick={randomizePreview} isDisabled={!previewCandidates.length} pointerEvents="auto" aria-label="Náhodný načtený stream">
+                  🎲 Náhodně
+                </Button>
+                <IconButton aria-label="Další stream v Preview" icon={<ChevronRightIcon />} size="sm" colorScheme="blackAlpha" onClick={() => movePreview(1)} isDisabled={!previewCandidates.length} pointerEvents="auto" />
+              </Flex>
             </Box>
 
             <Flex mt="3" justifyContent="space-between" alignItems="center" gap="2">
@@ -254,8 +287,8 @@ export const Sidebar = () => {
             </Flex>
           </Box>
 
-          <Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="3">
-            <Text color="#EEEEEC" fontSize="sm" fontWeight="semibold" mb="2">
+          <Box order={1} borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="3">
+            <Text color="#EEEEEE" fontSize="sm" fontWeight="semibold" mb="2">
               Přidat webový zdroj
             </Text>
             <Flex gap="2">
@@ -266,7 +299,7 @@ export const Sidebar = () => {
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') void handleSourceSubmit();
                 }}
-                placeholder="bongacams.com"
+                placeholder={selectedVideo?.url ?? 'https://example.com nebo bongacams.com'}
                 color="#EEEEEC"
                 _placeholder={{ color: 'whiteAlpha.600' }}
                 bg="black"
@@ -302,9 +335,9 @@ export const Sidebar = () => {
             </Text>
           </Box>
 
-          <Divider borderColor="whiteAlpha.300" />
+          <Divider order={3} borderColor="whiteAlpha.300" />
 
-          <Box flex="1" minH={0} overflowY="auto" pr="1">
+          <Box order={4} flex="1" minH={0} overflowY="auto" pr="1">
             <Flex alignItems="center" justifyContent="space-between" gap="2" px="1" pb="2">
               <Text color="gray.400" fontSize="xs">
                 {isLoadingSource ? 'Načítám web…' : `${currentStreamCount} uložených streamů`}
