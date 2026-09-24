@@ -2,6 +2,7 @@ import { SidebarAccordionItem } from '@/components/Sidebar/SidebarAccordionItem'
 import { SettingsAccordionItem } from '@/components/Sidebar/Settings/SettingsAccordionItem';
 import { useChannelsContext } from '@/contexts/useChannels';
 import { useControlsContext } from '@/contexts/useControls';
+import { findFirstEmptyVisibleSlot } from '@/lib/slotSelection';
 import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { AddIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, Input, Spinner, Text, useToast } from '@chakra-ui/react';
@@ -14,7 +15,7 @@ const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 export const Sidebar = () => {
   const toast = useToast();
   const { channels, isLoadingSource, sourceError, loadSource, saveChannelToPlaylist } = useChannelsContext();
-  const { selectedVideo, setSelectedVideo, slots, setSlotVideo } = useControlsContext();
+  const { selectedVideo, setSelectedVideo, slots, gridSize, setSlotVideo } = useControlsContext();
   const [minimized, setMinimized] = useState<boolean>(false);
   const [sourceUrl, setSourceUrl] = useState('');
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
@@ -34,16 +35,19 @@ export const Sidebar = () => {
     const choices = alternatives.length ? alternatives : previewCandidates;
     setSelectedVideo(choices[Math.floor(Math.random() * choices.length)]);
   };
-  const handlePreviewDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest('button')) return;
+  const addPreviewToGrid = () => {
     if (!selectedVideo) return;
-    const emptySlot = slots.findIndex((slot) => !slot);
+    const emptySlot = findFirstEmptyVisibleSlot(slots, gridSize);
     if (emptySlot < 0) {
-      toast({ title: 'Všechna okna jsou obsazená', description: 'Uvolni nejdřív některý slot.', status: 'info', duration: 2200 });
+      toast({ title: 'Všechna viditelná okna jsou obsazená', description: 'Zvětši mřížku nebo uvolni některé okno.', status: 'info', duration: 2600 });
       return;
     }
     setSlotVideo(emptySlot, selectedVideo);
     toast({ title: `Preview přidáno do okna ${emptySlot + 1}`, status: 'success', duration: 1600 });
+  };
+  const handlePreviewDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('button')) return;
+    addPreviewToGrid();
   };
 
   useEffect(() => {
@@ -277,6 +281,9 @@ export const Sidebar = () => {
                 {selectedVideo?.name ?? ' '}
               </Text>
               <Flex gap="2">
+                <Button size="xs" colorScheme="blue" onClick={addPreviewToGrid} isDisabled={!selectedVideo}>
+                  Přidat do okna
+                </Button>
                 <Button size="xs" colorScheme="green" onClick={handleSavePreview} isDisabled={!selectedVideo}>
                   Uložit do playlistu
                 </Button>
