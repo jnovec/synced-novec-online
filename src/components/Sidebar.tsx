@@ -163,15 +163,15 @@ export const Sidebar = () => {
       transition="width 0.25s ease"
       overflow="hidden"
     >
-      <Flex position="relative" justifyContent="center" alignItems="center" minH="104px">
+      <Flex position="relative" justifyContent="center" alignItems="center" minH="118px">
         {!minimized ? (
           <Box textAlign="center">
             <Image
-              src="/synced-logo.png"
+              src="/synced-logo-cropped.png"
               alt="SYNCED"
-              h="64px"
+              h="76px"
               w="auto"
-              maxW="290px"
+              maxW="310px"
               objectFit="contain"
               objectPosition="center"
               mx="auto"
