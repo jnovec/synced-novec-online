@@ -69,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!channels.length) return res.status(422).json({ error: 'no_videos_found' });
 
     return res.status(200).json({
-      category: isChaturbate ? `${sourceCategoryName(finalUrl)} #${chaturbateTag}` : sourceCategoryName(finalUrl),
+      category: isChaturbate ? `chaturbate #${chaturbateTag}` : sourceCategoryName(finalUrl),
       sourceUrl: finalUrl.toString(),
       channels,
       ...(isChaturbate ? { tags: tags ?? [] } : {}),
