@@ -91,6 +91,20 @@ export const Sidebar = () => {
     setIsPreviewDropActive(false);
   };
 
+  const handlePreviewDragStart = (event: DragEvent<HTMLDivElement>) => {
+    if (!selectedVideo?.url) {
+      event.preventDefault();
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = 'copy';
+    event.dataTransfer.setData('videoUrl', selectedVideo.url);
+    event.dataTransfer.setData('videoName', selectedVideo.name);
+    event.dataTransfer.setData('text/uri-list', selectedVideo.url);
+    event.dataTransfer.setData('text/plain', selectedVideo.url);
+    if (selectedVideo.playbackUrl) event.dataTransfer.setData('videoPlaybackUrl', selectedVideo.playbackUrl);
+  };
+
   const handlePreviewDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -229,6 +243,9 @@ export const Sidebar = () => {
               borderColor={isPreviewDropActive ? 'cyan.300' : 'whiteAlpha.200'}
               boxShadow={isPreviewDropActive ? '0 0 0 2px rgba(34,211,238,.35), 0 0 24px rgba(34,211,238,.25)' : undefined}
               position="relative"
+              draggable={Boolean(selectedVideo)}
+              cursor={selectedVideo ? 'grab' : 'default'}
+              onDragStart={handlePreviewDragStart}
               onDoubleClick={handlePreviewDoubleClick}
               onDragEnter={handlePreviewDragOver}
               onDragOver={handlePreviewDragOver}
