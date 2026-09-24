@@ -26,6 +26,7 @@ export const Sidebar = () => {
   const [sourceUrl, setSourceUrl] = useState('');
   const [chaturbateTag, setChaturbateTag] = useState('18');
   const [chaturbateTags, setChaturbateTags] = useState(defaultChaturbateTags);
+  const [isLoadingChaturbateTags, setIsLoadingChaturbateTags] = useState(false);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export const Sidebar = () => {
   const previewPlaybackFailures = useRef(0);
   const currentStreamCount = Object.values(channels).reduce((sum, group) => sum + group.length, 0);
   const previewCandidates = Object.values(channels).flat();
+  const isChaturbateSource = /(?:^|\/\/)(?:www\.)?chaturbate\.com(?:\/|$)/i.test(sourceUrl.trim());
   const movePreview = (direction: -1 | 1) => {
     if (!previewCandidates.length) return;
     const index = previewCandidates.findIndex((item) => item.url === selectedVideo?.url);
@@ -80,6 +82,37 @@ export const Sidebar = () => {
   useEffect(() => {
     previewPlaybackFailures.current = 0;
   }, [selectedVideo?.playbackUrl, selectedVideo?.url]);
+
+  useEffect(() => {
+    if (!isChaturbateSource) return;
+
+    let cancelled = false;
+    setIsLoadingChaturbateTags(true);
+
+    fetch('/api/chaturbate-tags', {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: sourceUrl }),
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('tag_fetch_failed');
+        return response.json() as Promise<{ tags?: unknown }>;
+      })
+      .then((data) => {
+        if (cancelled || !Array.isArray(data.tags)) return;
+        const tags = data.tags.filter((tag): tag is string => typeof tag === 'string');
+        if (tags.length) setChaturbateTags((current) => Array.from(new Set([...defaultChaturbateTags, ...current, ...tags])).sort());
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setIsLoadingChaturbateTags(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isChaturbateSource, sourceUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,8 +221,6 @@ export const Sidebar = () => {
       isClosable: true,
     });
   };
-
-  const isChaturbateSource = /(?:^|\/\/)(?:www\.)?chaturbate\.com(?:\/|$)/i.test(sourceUrl.trim());
 
   const handleSourceSubmit = async () => {
     if (!sourceUrl.trim()) return;
@@ -447,7 +478,7 @@ export const Sidebar = () => {
                     <option key={tag} value={tag}>#{tag}</option>
                   ))}
                 </Select>
-                <Button size="xs" colorScheme="pink" onClick={() => void handleSourceSubmit()} isLoading={isLoadingSource}>
+                <Button size="xs" colorScheme="pink" onClick={() => void handleSourceSubmit()} isLoading={isLoadingSource || isLoadingChaturbateTags}>
                   Načíst tag
                 </Button>
               </Flex>
