@@ -1,6 +1,7 @@
 import { buildBongaListingUrl, isBongaCamsUrl, parseBongaHomepage, parseBongaListing } from '@/lib/bongacams';
 import {
   buildChaturbateListingUrl,
+  extractChaturbateTags,
   isChaturbateUrl,
   parseChaturbateListing,
 } from '@/lib/chaturbateSource';
@@ -24,6 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
 
   const rawUrl = typeof req.body?.url === 'string' ? req.body.url : '';
+  const requestedTag = normalizeChaturbateTag(req.body?.tag);
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   try {
@@ -46,10 +48,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    const isChaturbate = isChaturbateUrl(sourceUrl);
+    const chaturbateTag = isChaturbate ? requestedTag || '18' : '';
     const discovered = isBongaCamsUrl(sourceUrl)
       ? await discoverBongaCams(sourceUrl)
-      : isChaturbateUrl(sourceUrl)
-        ? await discoverChaturbate(sourceUrl)
+      : isChaturbate
+        ? await discoverChaturbate(sourceUrl, chaturbateTag)
         : isStripchatUrl(sourceUrl)
           ? await discoverStripchat(sourceUrl)
           : isCamSodaUrl(sourceUrl)
@@ -61,13 +65,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 : isYoutubeUrl(sourceUrl)
                   ? await discoverYoutube(sourceUrl)
                 : await discoverGeneric(sourceUrl);
-    const { channels, finalUrl } = discovered;
+    const { channels, finalUrl, tags } = discovered;
     if (!channels.length) return res.status(422).json({ error: 'no_videos_found' });
 
     return res.status(200).json({
-      category: sourceCategoryName(finalUrl),
+      category: isChaturbate ? `${sourceCategoryName(finalUrl)} #${chaturbateTag}` : sourceCategoryName(finalUrl),
       sourceUrl: finalUrl.toString(),
       channels,
+      ...(isChaturbate ? { tags: tags ?? [] } : {}),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'source_fetch_failed';
@@ -80,6 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 interface DiscoveryResult {
   channels: DiscoveredChannel[];
   finalUrl: URL;
+  tags?: string[];
 }
 
 const discoverGeneric = async (sourceUrl: URL): Promise<DiscoveryResult> => {
@@ -147,15 +153,16 @@ const tryBongaListing = async (sourceUrl: URL, setCookies: string[] = []): Promi
   return [];
 };
 
-const discoverChaturbate = async (sourceUrl: URL): Promise<DiscoveryResult> => {
-  const directChannels = await tryChaturbateListing(sourceUrl);
-  if (directChannels.length) return { channels: directChannels, finalUrl: sourceUrl };
+const discoverChaturbate = async (sourceUrl: URL, tag: string): Promise<DiscoveryResult> => {
+  const directListing = await tryChaturbateListing(sourceUrl, [], tag);
+  if (directListing.channels.length) return { ...directListing, finalUrl: sourceUrl };
 
   const landing = await fetchPublicText(sourceUrl, { timeoutMs: 20_000 });
-  const channels = await tryChaturbateListing(landing.finalUrl, landing.setCookies);
+  const listing = await tryChaturbateListing(landing.finalUrl, landing.setCookies, tag);
   return {
-    channels: channels.length ? channels : extractVideoChannels(landing.text, landing.finalUrl),
+    channels: listing.channels.length ? listing.channels : extractVideoChannels(landing.text, landing.finalUrl),
     finalUrl: landing.finalUrl,
+    tags: listing.tags,
   };
 };
 
@@ -224,10 +231,10 @@ const discoverYoutube = async (sourceUrl: URL): Promise<DiscoveryResult> => {
   return { channels: channels.length ? channels : extractVideoChannels(landing.text, landing.finalUrl), finalUrl: landing.finalUrl };
 };
 
-const tryChaturbateListing = async (sourceUrl: URL, setCookies: string[] = []): Promise<DiscoveredChannel[]> => {
+const tryChaturbateListing = async (sourceUrl: URL, setCookies: string[] = [], tag = ''): Promise<Pick<DiscoveryResult, 'channels' | 'tags'>> => {
   try {
     const cookie = requestCookieHeader(setCookies);
-    const listing = await fetchPublicText(buildChaturbateListingUrl(sourceUrl), {
+    const listing = await fetchPublicText(buildChaturbateListingUrl(sourceUrl, tag), {
       maxBytes: 5_000_000,
       timeoutMs: 25_000,
       headers: {
@@ -237,11 +244,21 @@ const tryChaturbateListing = async (sourceUrl: URL, setCookies: string[] = []): 
         ...(cookie ? { cookie } : {}),
       },
     });
-    return parseChaturbateListing(JSON.parse(listing.text), sourceUrl);
+    const payload = JSON.parse(listing.text);
+    return {
+      channels: parseChaturbateListing(payload, sourceUrl),
+      tags: extractChaturbateTags(payload),
+    };
   } catch (error) {
     console.warn('Chaturbate listing request failed', error instanceof Error ? error.message : error);
-    return [];
+    return { channels: [], tags: [] };
   }
+};
+
+const normalizeChaturbateTag = (value: unknown): string => {
+  if (typeof value !== 'string') return '';
+  const tag = value.trim().replace(/^#/, '').toLowerCase();
+  return /^[a-z0-9][a-z0-9_-]{0,31}$/.test(tag) ? tag : '';
 };
 
 const requestCookieHeader = (setCookies: string[]): string =>

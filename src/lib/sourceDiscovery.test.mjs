@@ -13,6 +13,7 @@ import {
 } from './bongacams.ts';
 import {
   buildChaturbateListingUrl,
+  extractChaturbateTags,
   parseChaturbateListing,
 } from './chaturbateSource.ts';
 import { parseCamSodaListing } from './camsoda.ts';
@@ -112,6 +113,7 @@ test('builds and parses the Chaturbate room listing', () => {
   const listingUrl = buildChaturbateListingUrl(sourceUrl);
   assert.equal(listingUrl.pathname, '/api/ts/roomlist/room-list/');
   assert.equal(listingUrl.searchParams.get('genders'), 'f');
+  assert.equal(buildChaturbateListingUrl(sourceUrl, 'young').searchParams.get('tags'), 'young');
 
   const channels = parseChaturbateListing(
     {
@@ -139,6 +141,16 @@ test('builds and parses the Chaturbate room listing', () => {
       viewers: 456,
     },
   ]);
+
+  assert.deepEqual(
+    extractChaturbateTags({
+      rooms: [
+        { tags: ['young', '18', 'young', 'invalid tag'] },
+        { tags: ['18', 'latina'] },
+      ],
+    }),
+    ['18', 'young', 'latina']
+  );
 });
 
 test('parses CamSoda live model cards', () => {

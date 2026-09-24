@@ -9,6 +9,7 @@ interface ChaturbateRoom {
   num_users?: unknown;
   gender?: unknown;
   location?: unknown;
+  tags?: unknown;
 }
 
 interface ChaturbateListing {
@@ -17,7 +18,7 @@ interface ChaturbateListing {
 
 export const isChaturbateUrl = (url: URL): boolean => /(^|\.)chaturbate\.com$/i.test(url.hostname);
 
-export const buildChaturbateListingUrl = (sourceUrl: URL): URL => {
+export const buildChaturbateListingUrl = (sourceUrl: URL, tag = ''): URL => {
   const listingUrl = new URL('/api/ts/roomlist/room-list/', sourceUrl.origin);
   // Keep Chaturbate's own recommendation/ranking logic enabled so the result
   // is much closer to what the homepage shows instead of forcing a generic list.
@@ -27,16 +28,13 @@ export const buildChaturbateListingUrl = (sourceUrl: URL): URL => {
 
   const gender = chaturbateGender(sourceUrl);
   if (gender) listingUrl.searchParams.set('genders', gender);
+  if (tag) listingUrl.searchParams.set('tags', tag);
   return listingUrl;
 };
 
 export const parseChaturbateListing = (payload: unknown, sourceUrl: URL): DiscoveredChannel[] => {
   if (!payload || typeof payload !== 'object') return [];
-  const rooms = Array.isArray(payload)
-    ? payload
-    : Array.isArray((payload as ChaturbateListing).rooms)
-      ? (payload as ChaturbateListing).rooms
-      : (payload as { data?: ChaturbateListing }).data?.rooms;
+  const rooms = chaturbateRooms(payload);
   if (!Array.isArray(rooms)) return [];
 
   const channels: DiscoveredChannel[] = [];
@@ -70,6 +68,36 @@ export const parseChaturbateListing = (payload: unknown, sourceUrl: URL): Discov
   // Preserve the order returned by Chaturbate. Re-sorting by viewer count here
   // destroys the homepage/recommendation ranking and makes the list look unrelated.
   return channels;
+};
+
+export const extractChaturbateTags = (payload: unknown, limit = 50): string[] => {
+  const occurrences = new Map<string, number>();
+
+  for (const value of chaturbateRooms(payload)) {
+    if (!value || typeof value !== 'object') continue;
+    const tags = (value as ChaturbateRoom).tags;
+    if (!Array.isArray(tags)) continue;
+
+    for (const tag of tags) {
+      if (typeof tag !== 'string') continue;
+      const normalized = tag.trim().toLowerCase();
+      if (!/^[a-z0-9][a-z0-9_-]{0,31}$/.test(normalized)) continue;
+      occurrences.set(normalized, (occurrences.get(normalized) ?? 0) + 1);
+    }
+  }
+
+  return Array.from(occurrences.entries())
+    .sort(([firstTag, firstCount], [secondTag, secondCount]) => secondCount - firstCount || firstTag.localeCompare(secondTag))
+    .slice(0, limit)
+    .map(([tag]) => tag);
+};
+
+const chaturbateRooms = (payload: unknown): unknown[] => {
+  if (!payload || typeof payload !== 'object') return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray((payload as ChaturbateListing).rooms)) return (payload as ChaturbateListing).rooms as unknown[];
+  const nestedRooms = (payload as { data?: ChaturbateListing }).data?.rooms;
+  return Array.isArray(nestedRooms) ? nestedRooms : [];
 };
 
 const chaturbateGender = (url: URL): string => {

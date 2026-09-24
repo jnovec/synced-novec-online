@@ -19,7 +19,7 @@ interface ChannelsContextInterface {
   saveChannelToPlaylist: (channel: SaveableChannel) => string;
   deleteChannel: (deleteChannelCategory: string, deleteChannelUrl: string) => void;
   clearChannels: () => void;
-  loadSource: (sourceUrl: string) => Promise<SourceLoadResult>;
+  loadSource: (sourceUrl: string, tag?: string) => Promise<SourceLoadResult>;
   importPlaylist: (playlistUrl: string) => Promise<number>;
 }
 
@@ -182,7 +182,7 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
     return setChannels({});
   };
 
-  const loadSource = async (sourceUrl: string): Promise<SourceLoadResult> => {
+  const loadSource = async (sourceUrl: string, tag = ''): Promise<SourceLoadResult> => {
     if (loadingSourceRef.current) throw new Error('Jiný zdroj se právě načítá.');
     loadingSourceRef.current = true;
     setIsLoadingSource(true);
@@ -193,7 +193,7 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
         method: 'POST',
         cache: 'no-store',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url: sourceUrl }),
+        body: JSON.stringify({ url: sourceUrl, tag }),
       });
       const contentType = response.headers.get('content-type') ?? '';
       if (!contentType.includes('application/json')) {
@@ -211,8 +211,8 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
         return next;
       });
       setLastUpdatedAt(Date.now());
-      posthog.capture('source_loaded', { source: data.category, channel_count: nextChannels.length });
-      return { category: data.category, count: nextChannels.length };
+      posthog.capture('source_loaded', { source: data.category, channel_count: nextChannels.length, tag });
+      return { category: data.category, count: nextChannels.length, tags: normalizeTags(data.tags) };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Načtení zdroje selhalo.';
       setSourceError(message);
@@ -299,13 +299,20 @@ export interface Channel {
 interface SourceApiResponse {
   category?: string;
   channels?: Channel[];
+  tags?: string[];
   error?: string;
 }
 
 interface SourceLoadResult {
   category: string;
   count: number;
+  tags: string[];
 }
+
+const normalizeTags = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((tag): tag is string => typeof tag === 'string' && /^[a-z0-9][a-z0-9_-]{0,31}$/i.test(tag))
+    : [];
 
 const sourceErrorMessage = (error: string | undefined, status: number): string => {
   if (error === 'no_videos_found') return 'Na stránce nebyly nalezeny žádné streamy ani videa.';

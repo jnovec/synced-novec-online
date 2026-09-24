@@ -5,12 +5,13 @@ import { useControlsContext } from '@/contexts/useControls';
 import { findFirstEmptyVisibleSlot } from '@/lib/slotSelection';
 import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { AddIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
-import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, Input, Spinner, Text, useToast } from '@chakra-ui/react';
+import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, Input, Select, Spinner, Text, useToast } from '@chakra-ui/react';
 import { DragEvent, useEffect, useState } from 'react';
 import ReactPlayer from 'react-player';
 
 const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com', 'cam4.com', 'myfreecams.com', 'youtube.com'];
 const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
+const defaultChaturbateTags = ['18', 'young'];
 
 export const Sidebar = () => {
   const toast = useToast();
@@ -18,6 +19,8 @@ export const Sidebar = () => {
   const { selectedVideo, setSelectedVideo, slots, gridSize, setSlotVideo } = useControlsContext();
   const [minimized, setMinimized] = useState<boolean>(false);
   const [sourceUrl, setSourceUrl] = useState('');
+  const [chaturbateTag, setChaturbateTag] = useState('18');
+  const [chaturbateTags, setChaturbateTags] = useState(defaultChaturbateTags);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [isPreviewDropActive, setIsPreviewDropActive] = useState(false);
@@ -127,17 +130,22 @@ export const Sidebar = () => {
     });
   };
 
+  const isChaturbateSource = /(?:^|\/\/)(?:www\.)?chaturbate\.com(?:\/|$)/i.test(sourceUrl.trim());
+
   const handleSourceSubmit = async () => {
     if (!sourceUrl.trim()) return;
     try {
-      const result = await loadSource(sourceUrl);
+      const result = await loadSource(sourceUrl, isChaturbateSource ? chaturbateTag : '');
+      if (result.tags.length) {
+        setChaturbateTags((current) => Array.from(new Set([...defaultChaturbateTags, ...current, ...result.tags])).sort());
+      }
       toast({
         title: `${result.category}: ${result.count} položek`,
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
-      setSourceUrl('');
+      if (!isChaturbateSource) setSourceUrl('');
     } catch (error) {
       toast({
         title: 'Zdroj se nepodařilo načíst',
@@ -340,8 +348,29 @@ export const Sidebar = () => {
               />
             </Flex>
             <Text color="gray.500" fontSize="xs" mt="2">
-              Nalezená videa se uloží do sekce pojmenované podle domény.
+              Nalezená videa se uloží do sekce pojmenované podle domény; Chaturbate podle vybraného tagu.
             </Text>
+            {isChaturbateSource && (
+              <Flex mt="2" gap="2" alignItems="center">
+                <Text color="gray.300" fontSize="xs" whiteSpace="nowrap">Tag</Text>
+                <Select
+                  size="xs"
+                  value={chaturbateTag}
+                  onChange={(event) => setChaturbateTag(event.target.value)}
+                  bg="black"
+                  borderColor="whiteAlpha.400"
+                  color="#EEEEEC"
+                  aria-label="Chaturbate tag"
+                >
+                  {chaturbateTags.map((tag) => (
+                    <option key={tag} value={tag}>#{tag}</option>
+                  ))}
+                </Select>
+                <Button size="xs" colorScheme="pink" onClick={() => void handleSourceSubmit()} isLoading={isLoadingSource}>
+                  Načíst tag
+                </Button>
+              </Flex>
+            )}
             <Box color="gray.400" fontSize="xs" mt="2">
               <Flex gap="1" flexWrap="wrap" alignItems="center">
                 <Text as="span">Podporované weby:</Text>
