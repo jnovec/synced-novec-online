@@ -300,6 +300,26 @@ export const VideoDisplay = ({
     placeRemoteVideo(video, true);
   };
 
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.readText) throw new Error('clipboard_unavailable');
+      const clipboardText = (await navigator.clipboard.readText()).trim();
+      if (!clipboardText) {
+        toast({ title: 'Schránka je prázdná', status: 'info', duration: 2200 });
+        return;
+      }
+      setManualUrl(clipboardText);
+    } catch {
+      toast({
+        title: 'Schránku se nepodařilo načíst',
+        description: 'Povol přístup ke schránce v prohlížeči nebo vlož URL klávesovou zkratkou.',
+        status: 'warning',
+        duration: 4000,
+        isClosable: true,
+      });
+    }
+  };
+
   const handleStartDisplayShare = async () => {
     setSharingDisplay(true);
     try {
@@ -749,6 +769,9 @@ export const VideoDisplay = ({
             />
           </ModalBody>
           <ModalFooter gap="2" flexWrap="wrap">
+            <Button variant="outline" onClick={() => void handlePasteFromClipboard()}>
+              Vložit ze schránky
+            </Button>
             <Button
               colorScheme="purple"
               mr="auto"
