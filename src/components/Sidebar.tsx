@@ -4,14 +4,19 @@ import { useChannelsContext } from '@/contexts/useChannels';
 import { useControlsContext } from '@/contexts/useControls';
 import { findFirstEmptyVisibleSlot } from '@/lib/slotSelection';
 import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
-import { AddIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
+import { AddIcon, ChevronLeftIcon, ChevronRightIcon, RepeatIcon } from '@chakra-ui/icons';
 import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, Input, Select, Spinner, Text, useToast } from '@chakra-ui/react';
-import { DragEvent, useEffect, useState } from 'react';
+import { DragEvent, useEffect, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 
 const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com', 'cam4.com', 'myfreecams.com', 'youtube.com'];
 const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 const defaultChaturbateTags = ['18', 'young'];
+const STREAM_RESOLVE_ATTEMPTS = 3;
+
+const waitForRetry = (attempt: number) => new Promise<void>((resolve) => {
+  window.setTimeout(resolve, 700 * attempt);
+});
 
 export const Sidebar = () => {
   const toast = useToast();
@@ -23,7 +28,10 @@ export const Sidebar = () => {
   const [chaturbateTags, setChaturbateTags] = useState(defaultChaturbateTags);
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
   const [isPreviewDropActive, setIsPreviewDropActive] = useState(false);
+  const previewPlaybackFailures = useRef(0);
   const currentStreamCount = Object.values(channels).reduce((sum, group) => sum + group.length, 0);
   const previewCandidates = Object.values(channels).flat();
   const movePreview = (direction: -1 | 1) => {
@@ -53,32 +61,69 @@ export const Sidebar = () => {
     addPreviewToGrid();
   };
 
+  const refreshPreview = () => {
+    previewPlaybackFailures.current = 0;
+    setPreviewReloadKey((current) => current + 1);
+  };
+
+  const handlePreviewPlayerError = () => {
+    if (previewPlaybackFailures.current < 2) {
+      previewPlaybackFailures.current += 1;
+      setPreviewReloadKey((current) => current + 1);
+      return;
+    }
+
+    setResolvedPreviewUrl(null);
+    setPreviewError('Přehrávání se přerušilo. Obnov stream a zkus to znovu.');
+  };
+
+  useEffect(() => {
+    previewPlaybackFailures.current = 0;
+  }, [selectedVideo?.playbackUrl, selectedVideo?.url]);
+
   useEffect(() => {
     let cancelled = false;
 
     if (!selectedVideo?.url) {
       setResolvedPreviewUrl(null);
       setPreviewLoading(false);
+      setPreviewError(null);
       return;
     }
 
     setPreviewLoading(true);
     setResolvedPreviewUrl(null);
+    setPreviewError(null);
 
-    resolveRemoteStreamUrl(selectedVideo.url, selectedVideo.playbackUrl)
-      .then((streamUrl) => {
-        if (cancelled) return;
-        setResolvedPreviewUrl(streamUrl);
-      })
-      .finally(() => {
-        if (cancelled) return;
+    const resolvePreview = async () => {
+      for (let attempt = 1; attempt <= STREAM_RESOLVE_ATTEMPTS; attempt += 1) {
+        try {
+          const streamUrl = await resolveRemoteStreamUrl(selectedVideo.url, selectedVideo.playbackUrl);
+          if (cancelled) return;
+          if (streamUrl || shouldEmbedRemotePage(selectedVideo.url)) {
+            setResolvedPreviewUrl(streamUrl);
+            setPreviewLoading(false);
+            return;
+          }
+        } catch {
+          // A short-lived upstream URL can fail once while a model changes stream edge.
+        }
+
+        if (attempt < STREAM_RESOLVE_ATTEMPTS) await waitForRetry(attempt);
+      }
+
+      if (!cancelled) {
         setPreviewLoading(false);
-      });
+        setPreviewError('Stream se nepodařilo načíst. Zkus ho obnovit.');
+      }
+    };
+
+    void resolvePreview();
 
     return () => {
       cancelled = true;
     };
-  }, [selectedVideo?.playbackUrl, selectedVideo?.url]);
+  }, [previewReloadKey, selectedVideo?.playbackUrl, selectedVideo?.url]);
 
   const handlePreviewDragOver = (event: DragEvent<HTMLDivElement>) => {
     if (!Array.from(event.dataTransfer.types).includes(SLOT_DRAG_TYPE)) return;
@@ -232,7 +277,18 @@ export const Sidebar = () => {
                   {selectedVideo?.name ?? 'Vyber stream vlevo pro náhled'}
                 </Text>
               </Box>
-              <Badge colorScheme={selectedVideo ? 'green' : 'gray'}>{selectedVideo ? 'ready' : 'empty'}</Badge>
+              <Flex alignItems="center" gap="1">
+                <Badge colorScheme={selectedVideo && !previewError ? 'green' : 'gray'}>{selectedVideo && !previewError ? 'ready' : 'empty'}</Badge>
+                <IconButton
+                  aria-label="Obnovit náhled streamu"
+                  icon={<RepeatIcon />}
+                  size="xs"
+                  variant="ghost"
+                  color="gray.300"
+                  onClick={refreshPreview}
+                  isDisabled={!selectedVideo || previewLoading}
+                />
+              </Flex>
             </Flex>
 
             <Box
@@ -274,6 +330,7 @@ export const Sidebar = () => {
                         },
                       },
                     }}
+                    onError={handlePreviewPlayerError}
                     style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
                   />
                   {isPreviewDropActive && (
@@ -296,6 +353,13 @@ export const Sidebar = () => {
                   referrerPolicy="no-referrer"
                   pointerEvents="none"
                 />
+              ) : previewError ? (
+                <Flex h="170px" alignItems="center" justifyContent="center" direction="column" gap="3" color="gray.300" px="4" textAlign="center">
+                  <Text fontSize="sm">{previewError}</Text>
+                  <Button size="sm" leftIcon={<RepeatIcon />} onClick={refreshPreview}>
+                    Obnovit stream
+                  </Button>
+                </Flex>
               ) : (
                 <Flex h="170px" alignItems="center" justifyContent="center" direction="column" gap="1" color={isPreviewDropActive ? 'cyan.200' : 'gray.500'}>
                   <Image src="/favicon.ico" alt="preview" boxSize="28px" opacity={0.6} />

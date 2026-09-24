@@ -2,7 +2,7 @@ import { useControlsContext, VideoSlot } from '@/contexts/useControls';
 import { applyMediaAudio } from '@/lib/audioControls';
 import { isDisplaySlot } from '@/lib/displayMedia';
 import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
-import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from '@chakra-ui/icons';
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, RepeatIcon } from '@chakra-ui/icons';
 import {
   Box,
   Button,
@@ -33,16 +33,24 @@ const GAMEPAD_LEFT_BUTTON = 14;
 const GAMEPAD_RIGHT_BUTTON = 15;
 const GAMEPAD_STICK_DEADZONE = 0.55;
 const GAMEPAD_REPEAT_MS = 260;
+const STREAM_RESOLVE_ATTEMPTS = 3;
+
+const waitForRetry = (attempt: number) => new Promise<void>((resolve) => {
+  window.setTimeout(resolve, 700 * attempt);
+});
 
 export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: FullscreenVideoViewerProps) => {
   const { audioSettings, displayStreams, setSlotMuted, setSlotVolume } = useControlsContext();
   const [currentIndex, setCurrentIndex] = useState<number | null>(initialIndex);
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [streamError, setStreamError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const mediaRootRef = useRef<HTMLDivElement>(null);
   const gamepadStateRef = useRef({ left: false, right: false });
   const gamepadLastMoveRef = useRef(0);
   const goRef = useRef<(direction: -1 | 1) => void>(() => undefined);
+  const playbackFailuresRef = useRef(0);
 
   const occupiedIndexes = useMemo(() => slots.flatMap((slot, index) => (slot ? [index] : [])), [slots]);
   const currentSlot = currentIndex === null ? null : slots[currentIndex];
@@ -62,6 +70,26 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
   };
 
   goRef.current = go;
+
+  const refreshCurrentStream = () => {
+    playbackFailuresRef.current = 0;
+    setReloadKey((current) => current + 1);
+  };
+
+  const handlePlayerError = () => {
+    if (playbackFailuresRef.current < 2) {
+      playbackFailuresRef.current += 1;
+      setReloadKey((current) => current + 1);
+      return;
+    }
+
+    setResolvedUrl(null);
+    setStreamError('Přehrávání se přerušilo. Obnov stream a zkus to znovu.');
+  };
+
+  useEffect(() => {
+    playbackFailuresRef.current = 0;
+  }, [currentSlot?.playbackUrl, currentSlot?.url]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -112,23 +140,43 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
     if (!isOpen || !currentSlot?.url || isDisplay) {
       setResolvedUrl(null);
       setLoading(false);
+      setStreamError(null);
       return;
     }
 
     setLoading(true);
     setResolvedUrl(null);
-    resolveRemoteStreamUrl(currentSlot.url, currentSlot.playbackUrl)
-      .then((streamUrl) => {
-        if (!cancelled) setResolvedUrl(streamUrl);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    setStreamError(null);
+
+    const resolveStream = async () => {
+      for (let attempt = 1; attempt <= STREAM_RESOLVE_ATTEMPTS; attempt += 1) {
+        try {
+          const streamUrl = await resolveRemoteStreamUrl(currentSlot.url, currentSlot.playbackUrl);
+          if (cancelled) return;
+          if (streamUrl || shouldEmbedRemotePage(currentSlot.url)) {
+            setResolvedUrl(streamUrl);
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // The live provider may rotate a stream URL while the player is opening.
+        }
+
+        if (attempt < STREAM_RESOLVE_ATTEMPTS) await waitForRetry(attempt);
+      }
+
+      if (!cancelled) {
+        setLoading(false);
+        setStreamError('Stream se nepodařilo načíst. Zkus ho obnovit.');
+      }
+    };
+
+    void resolveStream();
 
     return () => {
       cancelled = true;
     };
-  }, [currentSlot?.playbackUrl, currentSlot?.url, isDisplay, isOpen]);
+  }, [currentSlot?.playbackUrl, currentSlot?.url, isDisplay, isOpen, reloadKey]);
 
   const hasNavigation = occupiedIndexes.length > 1;
 
@@ -183,7 +231,19 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
                 playing
                 muted={audio?.muted ?? true}
                 volume={audio?.volume ?? 0.5}
-                config={{ file: { forceHLS: true, attributes: { crossOrigin: 'true' } } }}
+                config={{
+                  file: {
+                    forceHLS: true,
+                    attributes: { crossOrigin: 'true' },
+                    hlsOptions: {
+                      capLevelToPlayerSize: false,
+                      abrEwmaDefaultEstimate: 8_000_000,
+                      maxBufferLength: 30,
+                      maxMaxBufferLength: 90,
+                    },
+                  },
+                }}
+                onError={handlePlayerError}
               />
             </Box>
           ) : currentSlot && shouldEmbedRemotePage(currentSlot.url) ? (
@@ -199,6 +259,13 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
               sandbox="allow-scripts allow-forms allow-popups allow-presentation"
               referrerPolicy="no-referrer"
             />
+          ) : streamError ? (
+            <Flex direction="column" alignItems="center" gap="3" color="gray.300" px="5" textAlign="center">
+              <Text>{streamError}</Text>
+              <Button leftIcon={<RepeatIcon />} onClick={refreshCurrentStream}>
+                Obnovit stream
+              </Button>
+            </Flex>
           ) : (
             <Text color="gray.400">Stream není dostupný.</Text>
           )}
@@ -208,7 +275,15 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
               <Text color="white" fontWeight="bold">{currentSlot?.name ?? 'Stream'}</Text>
               <Text color="gray.300" fontSize="sm">slot {(currentIndex ?? 0) + 1} · {occupiedIndexes.length} aktivních streamů</Text>
             </Box>
-            <IconButton aria-label="Zavřít celoobrazovkový přehrávač" icon={<CloseIcon />} onClick={onClose} pointerEvents="auto" colorScheme="red" />
+            <Flex gap="2" pointerEvents="auto">
+              <IconButton
+                aria-label="Obnovit stream ve fullscreenu"
+                icon={<RepeatIcon />}
+                onClick={refreshCurrentStream}
+                isDisabled={isDisplay || !currentSlot || loading}
+              />
+              <IconButton aria-label="Zavřít celoobrazovkový přehrávač" icon={<CloseIcon />} onClick={onClose} colorScheme="red" />
+            </Flex>
           </Flex>
 
           {hasNavigation && (
