@@ -113,7 +113,7 @@ test('builds and parses the Chaturbate room listing', () => {
   const listingUrl = buildChaturbateListingUrl(sourceUrl);
   assert.equal(listingUrl.pathname, '/api/ts/roomlist/room-list/');
   assert.equal(listingUrl.searchParams.get('genders'), 'f');
-  assert.equal(buildChaturbateListingUrl(sourceUrl, 'young').searchParams.get('tags'), 'young');
+  assert.equal(buildChaturbateListingUrl(sourceUrl, 'young').searchParams.get('hashtags'), 'young');
 
   const channels = parseChaturbateListing(
     {

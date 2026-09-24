@@ -28,7 +28,7 @@ export const buildChaturbateListingUrl = (sourceUrl: URL, tag = ''): URL => {
 
   const gender = chaturbateGender(sourceUrl);
   if (gender) listingUrl.searchParams.set('genders', gender);
-  if (tag) listingUrl.searchParams.set('tags', tag);
+  if (tag) listingUrl.searchParams.set('hashtags', tag);
   return listingUrl;
 };
 
