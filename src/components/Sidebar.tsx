@@ -670,8 +670,29 @@ export const Sidebar = () => {
                 ))}
               </Select>
             </Box>
-            <Box mb="2" borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="2">
-              <Flex alignItems="center" justifyContent="space-between" mb="2">
+            <Box
+              mb="2"
+              maxH="280px"
+              minH="120px"
+              overflowY="auto"
+              overscrollBehavior="contain"
+              borderWidth="1px"
+              borderColor="whiteAlpha.200"
+              borderRadius="lg"
+              bg="blackAlpha.500"
+              p="2"
+              boxShadow="0 8px 20px rgba(0,0,0,.28)"
+            >
+              <Flex
+                position="sticky"
+                top="-2"
+                zIndex={1}
+                alignItems="center"
+                justifyContent="space-between"
+                mb="2"
+                py="1"
+                bg="blackAlpha.800"
+              >
                 <Text color="gray.300" fontSize="xs" fontWeight="semibold">More Rooms</Text>
                 <Text color="gray.500" fontSize="10px">Přetáhni do okna</Text>
               </Flex>
