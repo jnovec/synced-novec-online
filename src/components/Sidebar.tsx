@@ -4,7 +4,7 @@ import { useChannelsContext } from '@/contexts/useChannels';
 import { useControlsContext } from '@/contexts/useControls';
 import { findFirstEmptyVisibleSlot } from '@/lib/slotSelection';
 import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
-import { AddIcon, ChevronLeftIcon, ChevronRightIcon, RepeatIcon } from '@chakra-ui/icons';
+import { AddIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, RepeatIcon } from '@chakra-ui/icons';
 import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, Input, Select, Spinner, Text, useToast } from '@chakra-ui/react';
 import { DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
@@ -93,6 +93,7 @@ export const Sidebar = () => {
   const [sidebarMode, setSidebarMode] = useState<'sources' | 'settings'>('sources');
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
   const [isMoreRoomsOpen, setIsMoreRoomsOpen] = useState(false);
+  const [isMoreRoomsMinimized, setIsMoreRoomsMinimized] = useState(false);
   const [moreRoomsPosition, setMoreRoomsPosition] = useState(0);
   const [sourceUrl, setSourceUrl] = useState('');
   const [chaturbateTag, setChaturbateTag] = useState('18');
@@ -738,8 +739,11 @@ export const Sidebar = () => {
                 <Flex alignItems="center" gap="1">
                   <Text color="gray.500" fontSize="10px">Přetáhni do okna</Text>
                   <IconButton aria-label="Obnovit More Rooms" icon={<RepeatIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => void refreshMoreRooms()} isLoading={isLoadingSource} />
+                  <IconButton aria-label="Přesunout panel More Rooms" icon={<ChevronRightIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => setMoreRoomsPosition((position) => (position + 1) % 4)} />
+                  <IconButton aria-label="Minimalizovat More Rooms" icon={<MinusIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => setIsMoreRoomsMinimized((minimized) => !minimized)} />
                 </Flex>
               </Flex>
+              {!isMoreRoomsMinimized && <>
               <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
                 {visibleMoreRooms.map((channel) => (
                   <MoreRoomCard
@@ -762,6 +766,7 @@ export const Sidebar = () => {
                   />
                 </Flex>
               </Flex>
+              </>}
             </Box>}
             <Box flex="1" minH={0} overflowY="auto" pr="1">
               {sourceCategories[selectedCategoryIndex]?.[1].map((channel) => (
