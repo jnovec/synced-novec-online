@@ -11,6 +11,7 @@ import {
   Modal,
   ModalBody,
   ModalContent,
+  ModalOverlay,
   Slider,
   SliderFilledTrack,
   SliderThumb,
@@ -175,8 +176,6 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
     setStreamError(null);
 
     const resolveStream = async () => {
-      await new Promise<void>((resolve) => window.setTimeout(resolve, FULLSCREEN_EXPAND_MS));
-      if (cancelled) return;
       for (let attempt = 1; attempt <= STREAM_RESOLVE_ATTEMPTS; attempt += 1) {
         try {
           const streamUrl = await resolveRemoteStreamUrl(currentSlot.url, currentSlot.playbackUrl);
@@ -226,8 +225,9 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="full" motionPreset="slideInBottom" preserveScrollBarGap>
+      <ModalOverlay bg="transparent" />
       <ModalContent
-        bg="#030303"
+        bg="transparent"
         m="0"
         borderRadius="0"
         overflow="hidden"
@@ -271,7 +271,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
               <DisplayMediaPlayer stream={currentDisplayStream} muted={audio.muted} volume={audio.volume} />
             </Box>
           ) : loading ? (
-            <Box position="absolute" inset={0} bg="black" backgroundImage={currentSlot?.thumbnailUrl ? `url(${currentSlot.thumbnailUrl})` : undefined} backgroundSize="cover" backgroundPosition="center" />
+            <Box position="absolute" inset={0} bg="transparent" />
           ) : resolvedUrl ? (
             <Box position="absolute" inset={0} bg="black" backgroundImage={currentSlot?.thumbnailUrl ? `url(${currentSlot.thumbnailUrl})` : undefined} backgroundSize="cover" backgroundPosition="center">
               <ReactPlayer
