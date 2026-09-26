@@ -91,7 +91,9 @@ export const Sidebar = () => {
     const selectedItem = Array.from(document.querySelectorAll<HTMLElement>('[data-channel-url]')).find(
       (element) => element.dataset.channelUrl === selectedVideo.url
     );
-    selectedItem?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Keep one neighboring stream above the selected item so the current
+    // position remains easy to scan while moving through the preview.
+    selectedItem?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [selectedVideo?.url]);
 
   useEffect(() => {
