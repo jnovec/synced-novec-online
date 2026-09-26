@@ -536,9 +536,6 @@ export const Sidebar = () => {
                 onClick={() => void handleSourceSubmit()}
               />
             </Flex>
-            <Text color="gray.500" fontSize="xs" mt="2">
-              Nalezená videa se uloží do sekce pojmenované podle domény; Chaturbate podle vybraného tagu.
-            </Text>
             {isChaturbateSource && (
               <>
                 <Flex mt="2" gap="2" alignItems="center">
