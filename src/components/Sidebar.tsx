@@ -101,9 +101,10 @@ export const Sidebar = () => {
       const accordionItem = selectedItem.closest<HTMLElement>('[data-index]');
       const expandButton = accordionItem?.querySelector<HTMLButtonElement>('button[aria-expanded="false"]');
       expandButton?.click();
-      // Keep one neighboring stream above the selected item so the current
-      // position remains easy to scan while moving through the preview.
-      selectedItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Keep the active category header at the top so it is always clear
+      // which source channel is currently being browsed.
+      const categoryButton = accordionItem?.querySelector<HTMLButtonElement>('button[aria-expanded]');
+      categoryButton?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     const frame = window.requestAnimationFrame(scrollToSelectedChannel);
