@@ -364,7 +364,7 @@ export const Sidebar = () => {
               </Accordion>
             </Box>
           ) : (
-            <Flex flexDir="column" gap="2" minH={0} flex="1" overflow="hidden">
+            <Flex flexDir="column" gap="1" minH={0} flex="1" overflow="hidden">
           <Box order={2} borderWidth="1px" borderColor={isPreviewDropActive ? 'cyan.300' : 'whiteAlpha.200'} borderRadius="lg" bg="blackAlpha.300" p="3">
             <Flex justifyContent="space-between" alignItems="center" mb="2">
               <Box minW={0}>
@@ -593,7 +593,7 @@ export const Sidebar = () => {
                 {sourceError}
               </Text>
             )}
-            <Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="2" mb="1">
+            <Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="2" mb="0">
               <Select
                 size="sm"
                 value={selectedCategoryIndex}
