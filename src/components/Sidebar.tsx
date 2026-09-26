@@ -94,6 +94,8 @@ export const Sidebar = () => {
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
   const [isMoreRoomsOpen, setIsMoreRoomsOpen] = useState(false);
   const [isMoreRoomsMinimized, setIsMoreRoomsMinimized] = useState(false);
+  const [moreRoomsHeight, setMoreRoomsHeight] = useState(520);
+  const resizingMoreRoomsRef = useRef<{ startY: number; startHeight: number; edge: 'top' | 'bottom' } | null>(null);
   const [moreRoomsPosition, setMoreRoomsPosition] = useState(0);
   const [sourceUrl, setSourceUrl] = useState('');
   const [chaturbateTag, setChaturbateTag] = useState('18');
@@ -198,6 +200,25 @@ export const Sidebar = () => {
     const categoryIndex = sourceCategories.findIndex(([, items]) => items.some((item) => item.url === selectedVideo.url));
     if (categoryIndex >= 0) setSelectedCategoryIndex(categoryIndex);
   }, [selectedVideo?.url, sourceCategories]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const resize = resizingMoreRoomsRef.current;
+      if (!resize) return;
+      const delta = resize.edge === 'top' ? resize.startY - event.clientY : event.clientY - resize.startY;
+      const nextHeight = Math.max(180, Math.min(window.innerHeight - 32, resize.startHeight + delta));
+      setMoreRoomsHeight(nextHeight);
+    };
+    const handlePointerUp = () => {
+      resizingMoreRoomsRef.current = null;
+    };
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, []);
 
   useEffect(() => {
     if (!resolvedPreviewUrl) return;
@@ -714,6 +735,7 @@ export const Sidebar = () => {
               minW="280px"
               maxW="80vw"
               minH="180px"
+              h={`${moreRoomsHeight}px`}
               maxH="calc(100vh - 32px)"
               overflow="auto"
               overscrollBehavior="contain"
@@ -725,6 +747,14 @@ export const Sidebar = () => {
               boxShadow="0 12px 28px rgba(0,0,0,.65)"
               sx={{ resize: 'both' }}
             >
+              <Box position="absolute" top="0" left="12px" right="12px" h="8px" cursor="ns-resize" zIndex={5} onPointerDown={(event) => {
+                event.preventDefault();
+                resizingMoreRoomsRef.current = { startY: event.clientY, startHeight: moreRoomsHeight, edge: 'top' };
+              }} />
+              <Box position="absolute" bottom="0" left="12px" right="12px" h="8px" cursor="ns-resize" zIndex={5} onPointerDown={(event) => {
+                event.preventDefault();
+                resizingMoreRoomsRef.current = { startY: event.clientY, startHeight: moreRoomsHeight, edge: 'bottom' };
+              }} />
               <Flex
                 position="sticky"
                 top="-2"
