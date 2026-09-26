@@ -600,21 +600,21 @@ export const Sidebar = () => {
             )}
             <Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="2" mb="3">
               <Text color="gray.400" fontSize="xs" px="2" pb="2">Kategorie streamů</Text>
-              <Flex gap="2" overflowX="auto" pb="1">
+              <Select
+                size="sm"
+                value={selectedCategoryIndex}
+                onChange={(event) => setSelectedCategoryIndex(Number(event.target.value))}
+                bg="purple.500"
+                color="white"
+                borderColor="purple.300"
+                _hover={{ bg: 'purple.600' }}
+                sx={{ option: { color: '#1A202C', background: 'white' } }}
+                aria-label="Vybraná kategorie streamů"
+              >
                 {sourceCategories.map(([category, sourceChannels], categoryIndex) => (
-                  <Button
-                    key={category}
-                    flexShrink={0}
-                    size="sm"
-                    borderRadius="md"
-                    colorScheme={selectedCategoryIndex === categoryIndex ? 'purple' : 'gray'}
-                    variant={selectedCategoryIndex === categoryIndex ? 'solid' : 'outline'}
-                    onClick={() => setSelectedCategoryIndex(categoryIndex)}
-                  >
-                    {category} <Badge ml="2" colorScheme="pink">{sourceChannels.length}</Badge>
-                  </Button>
+                  <option key={category} value={categoryIndex}>{category} ({sourceChannels.length})</option>
                 ))}
-              </Flex>
+              </Select>
             </Box>
             {sourceCategories[selectedCategoryIndex]?.[1].map((channel) => (
               <ChannelItem key={channel.url} {...channel} />
