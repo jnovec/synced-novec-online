@@ -674,6 +674,9 @@ export const Sidebar = () => {
               mb="2"
               maxH="280px"
               minH="120px"
+              position="sticky"
+              top="0"
+              zIndex={20}
               overflowY="auto"
               overscrollBehavior="contain"
               borderWidth="1px"
@@ -697,7 +700,7 @@ export const Sidebar = () => {
                 <Text color="gray.500" fontSize="10px">Přetáhni do okna</Text>
               </Flex>
               <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
-                {(sourceCategories[selectedCategoryIndex]?.[1] ?? []).slice(0, 6).map((channel) => (
+                {(sourceCategories[selectedCategoryIndex]?.[1] ?? []).slice(0, 12).map((channel) => (
                   <MoreRoomCard
                     key={`more-room-${channel.url}`}
                     {...channel}
