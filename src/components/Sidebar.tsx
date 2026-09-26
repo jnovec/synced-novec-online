@@ -587,7 +587,7 @@ export const Sidebar = () => {
 
           <Divider order={3} borderColor="whiteAlpha.300" />
 
-          <Box order={4} flex="1" minH={0} overflowY="auto" pr="1">
+          <Flex order={4} flex="1" minH={0} direction="column" overflow="hidden">
             <Flex alignItems="center" justifyContent="space-between" gap="2" px="1" pb="2">
               <Text color="gray.400" fontSize="xs">
                 {isLoadingSource ? 'Načítám web…' : `${currentStreamCount} uložených streamů`}
@@ -616,10 +616,12 @@ export const Sidebar = () => {
                 ))}
               </Select>
             </Box>
-            {sourceCategories[selectedCategoryIndex]?.[1].map((channel) => (
-              <ChannelItem key={channel.url} {...channel} />
-            ))}
-          </Box>
+            <Box flex="1" minH={0} overflowY="auto" pr="1">
+              {sourceCategories[selectedCategoryIndex]?.[1].map((channel) => (
+                <ChannelItem key={channel.url} {...channel} />
+              ))}
+            </Box>
+          </Flex>
             </Flex>
           )}
         </Flex>
