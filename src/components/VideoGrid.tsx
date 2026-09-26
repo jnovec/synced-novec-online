@@ -29,7 +29,7 @@ export const VideoGrid = () => {
               key={i}
               index={i}
               onOpenFullscreen={setFullscreenIndex}
-              isFullscreenActive={fullscreenIndex !== null}
+              isFullscreenActive={fullscreenIndex === i}
               gridRowStart={placement.rowStart}
               gridRowEnd={placement.rowEnd}
               gridColumnStart={placement.colStart}
