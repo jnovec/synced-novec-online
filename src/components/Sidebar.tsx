@@ -1,4 +1,4 @@
-import { SidebarAccordionItem } from '@/components/Sidebar/SidebarAccordionItem';
+import { ChannelItem } from '@/components/Sidebar/ChannelItem';
 import { SettingsAccordionItem } from '@/components/Sidebar/Settings/SettingsAccordionItem';
 import { useChannelsContext } from '@/contexts/useChannels';
 import { useControlsContext } from '@/contexts/useControls';
@@ -25,7 +25,7 @@ export const Sidebar = () => {
   const { selectedVideo, setSelectedVideo, slots, gridSize, setSlotVideo } = useControlsContext();
   const [minimized, setMinimized] = useState<boolean>(false);
   const [sidebarMode, setSidebarMode] = useState<'sources' | 'settings'>('sources');
-  const [expandedSourceCategory, setExpandedSourceCategory] = useState<number | number[]>([]);
+  const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
   const [sourceUrl, setSourceUrl] = useState('');
   const [chaturbateTag, setChaturbateTag] = useState('18');
   const [chaturbateTags, setChaturbateTags] = useState(defaultChaturbateTags);
@@ -118,7 +118,7 @@ export const Sidebar = () => {
   useEffect(() => {
     if (!selectedVideo?.url) return;
     const categoryIndex = sourceCategories.findIndex(([, items]) => items.some((item) => item.url === selectedVideo.url));
-    if (categoryIndex >= 0) setExpandedSourceCategory(categoryIndex);
+    if (categoryIndex >= 0) setSelectedCategoryIndex(categoryIndex);
   }, [selectedVideo?.url, sourceCategories]);
 
   useEffect(() => {
@@ -598,11 +598,27 @@ export const Sidebar = () => {
                 {sourceError}
               </Text>
             )}
-            <Accordion allowToggle index={expandedSourceCategory} onChange={setExpandedSourceCategory}>
-              {sourceCategories.map(([category, sourceChannels]) => (
-                <SidebarAccordionItem key={category} title={category} innerData={sourceChannels} />
-              ))}
-            </Accordion>
+            <Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="2" mb="3">
+              <Text color="gray.400" fontSize="xs" px="2" pb="2">Kategorie streamů</Text>
+              <Flex gap="2" overflowX="auto" pb="1">
+                {sourceCategories.map(([category, sourceChannels], categoryIndex) => (
+                  <Button
+                    key={category}
+                    flexShrink={0}
+                    size="sm"
+                    borderRadius="md"
+                    colorScheme={selectedCategoryIndex === categoryIndex ? 'purple' : 'gray'}
+                    variant={selectedCategoryIndex === categoryIndex ? 'solid' : 'outline'}
+                    onClick={() => setSelectedCategoryIndex(categoryIndex)}
+                  >
+                    {category} <Badge ml="2" colorScheme="pink">{sourceChannels.length}</Badge>
+                  </Button>
+                ))}
+              </Flex>
+            </Box>
+            {sourceCategories[selectedCategoryIndex]?.[1].map((channel) => (
+              <ChannelItem key={channel.url} {...channel} />
+            ))}
           </Box>
             </Flex>
           )}
