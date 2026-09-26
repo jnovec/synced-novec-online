@@ -86,6 +86,7 @@ export const Sidebar = () => {
   const [minimized, setMinimized] = useState<boolean>(false);
   const [sidebarMode, setSidebarMode] = useState<'sources' | 'settings'>('sources');
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
+  const [isMoreRoomsOpen, setIsMoreRoomsOpen] = useState(false);
   const [sourceUrl, setSourceUrl] = useState('');
   const [chaturbateTag, setChaturbateTag] = useState('18');
   const [chaturbateTags, setChaturbateTags] = useState(defaultChaturbateTags);
@@ -647,44 +648,50 @@ export const Sidebar = () => {
 
           <Divider order={3} borderColor="whiteAlpha.300" />
 
-          <Flex order={4} flex="1" minH={0} direction="column" overflow="hidden">
+          <Flex order={4} position="relative" flex="1" minH={0} direction="column" overflow="hidden">
             {sourceError && (
               <Text color="red.300" fontSize="xs" px="1" pb="2">
                 {sourceError}
               </Text>
             )}
             <Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="2" mb="0">
-              <Select
-                size="sm"
-                value={selectedCategoryIndex}
-                onChange={(event) => setSelectedCategoryIndex(Number(event.target.value))}
-                bg="purple.500"
-                color="white"
-                borderColor="purple.300"
-                _hover={{ bg: 'purple.600' }}
-                sx={{ option: { color: '#1A202C', background: 'white' } }}
-                aria-label="Vybraná kategorie streamů"
-              >
-                {sourceCategories.map(([category, sourceChannels], categoryIndex) => (
-                  <option key={category} value={categoryIndex}>{category} ({sourceChannels.length})</option>
-                ))}
-              </Select>
+              <Flex gap="2">
+                <Select
+                  size="sm"
+                  value={selectedCategoryIndex}
+                  onChange={(event) => setSelectedCategoryIndex(Number(event.target.value))}
+                  bg="purple.500"
+                  color="white"
+                  borderColor="purple.300"
+                  _hover={{ bg: 'purple.600' }}
+                  sx={{ option: { color: '#1A202C', background: 'white' } }}
+                  aria-label="Vybraná kategorie streamů"
+                >
+                  {sourceCategories.map(([category, sourceChannels], categoryIndex) => (
+                    <option key={category} value={categoryIndex}>{category} ({sourceChannels.length})</option>
+                  ))}
+                </Select>
+                <Button size="sm" colorScheme="purple" onClick={() => setIsMoreRoomsOpen((open) => !open)}>
+                  {isMoreRoomsOpen ? 'Skrýt' : 'More Rooms'}
+                </Button>
+              </Flex>
             </Box>
-            <Box
-              mb="2"
-              maxH="280px"
+            {isMoreRoomsOpen && <Box
+              position="absolute"
+              top="52px"
+              left="0"
+              right="0"
+              zIndex={30}
+              maxH="360px"
               minH="120px"
-              position="sticky"
-              top="0"
-              zIndex={20}
               overflowY="auto"
               overscrollBehavior="contain"
               borderWidth="1px"
-              borderColor="whiteAlpha.200"
+              borderColor="purple.300"
               borderRadius="lg"
-              bg="blackAlpha.500"
+              bg="#111807"
               p="2"
-              boxShadow="0 8px 20px rgba(0,0,0,.28)"
+              boxShadow="0 12px 28px rgba(0,0,0,.65)"
             >
               <Flex
                 position="sticky"
@@ -709,7 +716,7 @@ export const Sidebar = () => {
                   />
                 ))}
               </Box>
-            </Box>
+            </Box>}
             <Box flex="1" minH={0} overflowY="auto" pr="1">
               {sourceCategories[selectedCategoryIndex]?.[1].map((channel) => (
                 <ChannelItem key={channel.url} {...channel} />
