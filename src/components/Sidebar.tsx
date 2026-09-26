@@ -35,6 +35,7 @@ export const Sidebar = () => {
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
   const [isPreviewDropActive, setIsPreviewDropActive] = useState(false);
   const previewPlaybackFailures = useRef(0);
+  const lastPreviewProgress = useRef(0);
   const currentStreamCount = Object.values(channels).reduce((sum, group) => sum + group.length, 0);
   const previewCandidates = Object.values(channels).flat();
   const isChaturbateSource = /(?:^|\/\/)(?:www\.)?chaturbate\.com(?:\/|$)/i.test(sourceUrl.trim());
@@ -71,19 +72,32 @@ export const Sidebar = () => {
   };
 
   const handlePreviewPlayerError = () => {
-    if (previewPlaybackFailures.current < 2) {
-      previewPlaybackFailures.current += 1;
-      setPreviewReloadKey((current) => current + 1);
-      return;
-    }
+    previewPlaybackFailures.current += 1;
+    setPreviewReloadKey((current) => current + 1);
+  };
 
-    setResolvedPreviewUrl(null);
-    setPreviewError('Přehrávání se přerušilo. Obnov stream a zkus to znovu.');
+  const handlePreviewProgress = () => {
+    lastPreviewProgress.current = Date.now();
+    previewPlaybackFailures.current = 0;
   };
 
   useEffect(() => {
     previewPlaybackFailures.current = 0;
+    lastPreviewProgress.current = Date.now();
   }, [selectedVideo?.playbackUrl, selectedVideo?.url]);
+
+  useEffect(() => {
+    if (!resolvedPreviewUrl) return;
+
+    lastPreviewProgress.current = Date.now();
+    const watchdog = window.setInterval(() => {
+      if (Date.now() - lastPreviewProgress.current < 12_000) return;
+      setPreviewReloadKey((current) => current + 1);
+      lastPreviewProgress.current = Date.now();
+    }, 4_000);
+
+    return () => window.clearInterval(watchdog);
+  }, [resolvedPreviewUrl]);
 
   useEffect(() => {
     if (!isChaturbateSource) return;
@@ -365,10 +379,15 @@ export const Sidebar = () => {
                           lowLatencyMode: false,
                           liveSyncDurationCount: 3,
                           liveMaxLatencyDurationCount: 10,
+                          manifestLoadingMaxRetry: 4,
+                          levelLoadingMaxRetry: 4,
+                          fragLoadingMaxRetry: 6,
+                          fragLoadingRetryDelay: 800,
                         },
                       },
                     }}
                     onError={handlePreviewPlayerError}
+                    onProgress={handlePreviewProgress}
                     style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
                   />
                   {isPreviewDropActive && (

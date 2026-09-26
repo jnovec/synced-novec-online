@@ -526,6 +526,10 @@ export const VideoDisplay = ({
                       abrEwmaDefaultEstimate: isBusyGrid ? 1_250_000 : 2_000_000,
                       maxBufferLength: isBusyGrid ? 8 : 14,
                       maxMaxBufferLength: isBusyGrid ? 16 : 30,
+                      manifestLoadingMaxRetry: 4,
+                      levelLoadingMaxRetry: 4,
+                      fragLoadingMaxRetry: 6,
+                      fragLoadingRetryDelay: 800,
                     },
                   },
                 }}
