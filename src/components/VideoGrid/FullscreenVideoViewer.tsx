@@ -46,7 +46,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
   const [currentIndex, setCurrentIndex] = useState<number | null>(initialIndex);
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [mediaReady, setMediaReady] = useState(false);
+  const [expansionStarted, setExpansionStarted] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const mediaRootRef = useRef<HTMLDivElement>(null);
@@ -92,7 +92,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
 
   useEffect(() => {
     playbackFailuresRef.current = 0;
-    setMediaReady(false);
+    setExpansionStarted(false);
   }, [currentSlot?.playbackUrl, currentSlot?.url]);
 
   useEffect(() => {
@@ -171,7 +171,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
     }
 
     setLoading(true);
-    setMediaReady(false);
+    setExpansionStarted(false);
     setResolvedUrl(null);
     setStreamError(null);
 
@@ -224,7 +224,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="full" motionPreset="slideInBottom" preserveScrollBarGap>
+    <Modal isOpen={isOpen} onClose={onClose} size="full" motionPreset="none" preserveScrollBarGap>
       <ModalOverlay bg="transparent" />
       <ModalContent
         bg="transparent"
@@ -235,7 +235,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
         borderColor="purple.400"
         boxShadow="0 0 0 1px rgba(168,85,247,.9), 0 0 24px rgba(168,85,247,.95), inset 0 0 30px rgba(34,211,238,.18)"
         sx={{
-          animation: `synced-fullscreen-expand ${FULLSCREEN_EXPAND_MS}ms cubic-bezier(.2,.8,.2,1) both`,
+          animation: expansionStarted ? `synced-fullscreen-expand ${FULLSCREEN_EXPAND_MS}ms cubic-bezier(.2,.8,.2,1) both` : 'none',
           '@keyframes synced-fullscreen-expand': {
             from: {
               opacity: 0.72,
@@ -297,10 +297,12 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
                   },
                 }}
                 style={{
-                  opacity: mediaReady ? 1 : 0,
+                  opacity: expansionStarted ? 1 : 0,
                   transition: 'opacity 480ms ease-in-out',
                 }}
-                onReady={() => setMediaReady(true)}
+                onReady={() => {
+                  setExpansionStarted(true);
+                }}
                 onError={handlePlayerError}
               />
             </Box>
