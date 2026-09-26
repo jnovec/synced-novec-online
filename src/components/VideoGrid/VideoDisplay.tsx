@@ -48,7 +48,7 @@ const waitFor = (milliseconds: number) => new Promise<void>((resolve) => {
 
 interface VideoDisplayProps {
   index: number;
-  onOpenFullscreen: (index: number) => void;
+  onOpenFullscreen: (index: number | null) => void;
   isFullscreenActive: boolean;
   gridRowStart: string;
   gridRowEnd: string;
@@ -217,7 +217,7 @@ export const VideoDisplay = ({
 
   const handleClick = () => {
     if (slot) {
-      onOpenFullscreen(index);
+      onOpenFullscreen(isFullscreenActive ? null : index);
       return;
     }
 
@@ -497,9 +497,12 @@ export const VideoDisplay = ({
                   ? 'whiteAlpha.300'
                   : 'whiteAlpha.100'
         }
-        borderRadius="lg"
         overflow="hidden"
         pos="relative"
+        position={isFullscreenActive ? 'fixed' : 'relative'}
+        inset={isFullscreenActive ? '0' : undefined}
+        zIndex={isFullscreenActive ? 1000 : (isDuplicateHighlighted || isSlotDragOver ? 12 : 0)}
+        borderRadius={isFullscreenActive ? '0' : 'lg'}
         bg="black"
         opacity={isSlotDragging ? 0.55 : 1}
         boxShadow={
@@ -509,7 +512,6 @@ export const VideoDisplay = ({
               ? '0 0 0 2px rgba(103,232,249,.65), 0 0 30px rgba(34,211,238,.5)'
               : undefined
         }
-        zIndex={isDuplicateHighlighted || isSlotDragOver ? 12 : 0}
         transform="scale(1)"
         transformOrigin="center"
         transition="transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 220ms ease, opacity 160ms ease"
@@ -517,7 +519,7 @@ export const VideoDisplay = ({
         draggable={Boolean(slot)}
         onDragStart={handleSlotDragStart}
         onDragEnd={handleSlotDragEnd}
-        _hover={{
+          _hover={{
           transform: 'scale(1.16)',
           zIndex: 10,
           borderColor: 'red.300',
@@ -537,7 +539,7 @@ export const VideoDisplay = ({
         cursor={slot ? 'grab' : 'pointer'}
       >
         {slot ? (
-          <Box ref={mediaRootRef} position="absolute" inset={0} opacity={isFullscreenActive ? 0 : 1} pointerEvents={isFullscreenActive ? 'none' : 'auto'}>
+          <Box ref={mediaRootRef} position="absolute" inset={0} opacity={1} pointerEvents="auto">
             {isDisplay && displayStream ? (
               <DisplayMediaPlayer
                 stream={displayStream}
@@ -554,8 +556,8 @@ export const VideoDisplay = ({
                 width="100%"
                 height="100%"
                 url={resolvedUrl}
-                playing={!isFullscreenActive}
-                muted={isFullscreenActive || audio.muted}
+                playing
+                muted={audio.muted}
                 volume={audio.volume}
                 config={{
                   file: {

@@ -1,7 +1,6 @@
 import { useControlsContext } from '@/contexts/useControls';
 import { Grid } from '@chakra-ui/react';
 import { useState } from 'react';
-import { FullscreenVideoViewer } from './VideoGrid/FullscreenVideoViewer';
 import { VideoDisplay } from './VideoGrid/VideoDisplay';
 
 export const VideoGrid = () => {
@@ -28,7 +27,7 @@ export const VideoGrid = () => {
             <VideoDisplay
               key={i}
               index={i}
-              onOpenFullscreen={setFullscreenIndex}
+              onOpenFullscreen={(index) => setFullscreenIndex(index)}
               isFullscreenActive={fullscreenIndex === i}
               gridRowStart={placement.rowStart}
               gridRowEnd={placement.rowEnd}
@@ -38,12 +37,6 @@ export const VideoGrid = () => {
           );
         })}
       </Grid>
-      <FullscreenVideoViewer
-        isOpen={fullscreenIndex !== null}
-        initialIndex={fullscreenIndex}
-        slots={slots}
-        onClose={() => setFullscreenIndex(null)}
-      />
     </>
   );
 };
