@@ -6,7 +6,7 @@ import { findFirstEmptyVisibleSlot } from '@/lib/slotSelection';
 import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { AddIcon, ChevronLeftIcon, ChevronRightIcon, RepeatIcon } from '@chakra-ui/icons';
 import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, Input, Select, Spinner, Text, useToast } from '@chakra-ui/react';
-import { DragEvent, useEffect, useRef, useState } from 'react';
+import { DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 
 const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com', 'cam4.com', 'myfreecams.com', 'youtube.com'];
@@ -40,7 +40,7 @@ export const Sidebar = () => {
   const lastPreviewProgress = useRef(0);
   const currentStreamCount = Object.values(channels).reduce((sum, group) => sum + group.length, 0);
   const previewCandidates = Object.values(channels).flat();
-  const sourceCategories = Object.entries(channels);
+  const sourceCategories = useMemo(() => Object.entries(channels), [channels]);
   const isChaturbateSource = /(?:^|\/\/)(?:www\.)?chaturbate\.com(?:\/|$)/i.test(sourceUrl.trim());
   const movePreview = (direction: -1 | 1) => {
     if (!previewCandidates.length) return;
