@@ -93,7 +93,6 @@ export const Sidebar = () => {
   const [sidebarMode, setSidebarMode] = useState<'sources' | 'settings'>('sources');
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
   const [isMoreRoomsOpen, setIsMoreRoomsOpen] = useState(false);
-  const [moreRoomsPage, setMoreRoomsPage] = useState(0);
   const [moreRoomsPosition, setMoreRoomsPosition] = useState(0);
   const [sourceUrl, setSourceUrl] = useState('');
   const [chaturbateTag, setChaturbateTag] = useState('18');
@@ -111,9 +110,7 @@ export const Sidebar = () => {
   const previewCandidates = Object.values(channels).flat();
   const sourceCategories = useMemo(() => Object.entries(channels), [channels]);
   const moreRoomsItems = sourceCategories[selectedCategoryIndex]?.[1] ?? [];
-  const moreRoomsPageSize = 12;
-  const moreRoomsPageCount = Math.max(1, Math.ceil(moreRoomsItems.length / moreRoomsPageSize));
-  const visibleMoreRooms = moreRoomsItems.slice(moreRoomsPage * moreRoomsPageSize, (moreRoomsPage + 1) * moreRoomsPageSize);
+  const visibleMoreRooms = moreRoomsItems;
   const moreRoomsPositionStyles = [
     { left: '16px', bottom: '16px' },
     { right: '16px', bottom: '16px' },
@@ -121,9 +118,6 @@ export const Sidebar = () => {
     { left: '16px', top: '16px' },
   ][moreRoomsPosition];
 
-  useEffect(() => {
-    setMoreRoomsPage(0);
-  }, [selectedCategoryIndex]);
   const isChaturbateSource = /(?:^|\/\/)(?:www\.)?chaturbate\.com(?:\/|$)/i.test(sourceUrl.trim());
   const movePreview = (direction: -1 | 1) => {
     if (!previewCandidates.length) return;
@@ -389,7 +383,6 @@ export const Sidebar = () => {
     const source = isChaturbateCategory ? 'chaturbate.com' : category;
     try {
       await loadSource(source, tag);
-      setMoreRoomsPage(0);
     } catch {
       // The normal source error message remains visible in the sidebar.
     }
@@ -720,7 +713,7 @@ export const Sidebar = () => {
               minW="280px"
               maxW="80vw"
               minH="180px"
-              maxH="70vh"
+              maxH="calc(100vh - 32px)"
               overflow="auto"
               overscrollBehavior="contain"
               borderWidth="1px"
@@ -730,18 +723,6 @@ export const Sidebar = () => {
               p="2"
               boxShadow="0 12px 28px rgba(0,0,0,.65)"
               sx={{ resize: 'both' }}
-              onScroll={(event) => {
-                const target = event.currentTarget;
-                if (target.scrollTop + target.clientHeight >= target.scrollHeight - 24 && moreRoomsPage < moreRoomsPageCount - 1) {
-                  setMoreRoomsPage((page) => page + 1);
-                  target.scrollTop = 0;
-                } else if (target.scrollTop <= 24 && moreRoomsPage > 0) {
-                  setMoreRoomsPage((page) => page - 1);
-                  window.requestAnimationFrame(() => {
-                    target.scrollTop = Math.max(0, target.scrollHeight - target.clientHeight - 24);
-                  });
-                }
-              }}
             >
               <Flex
                 position="sticky"
@@ -770,26 +751,8 @@ export const Sidebar = () => {
                 ))}
               </Box>
               <Flex alignItems="center" justifyContent="space-between" mt="2" pt="2" borderTopWidth="1px" borderColor="whiteAlpha.200">
-                <IconButton
-                  aria-label="Předchozí stránka More Rooms"
-                  icon={<ChevronLeftIcon />}
-                  size="xs"
-                  variant="ghost"
-                  color="gray.300"
-                  onClick={() => setMoreRoomsPage((page) => (page - 1 + moreRoomsPageCount) % moreRoomsPageCount)}
-                  isDisabled={moreRoomsPageCount <= 1}
-                />
-                <Text color="gray.500" fontSize="10px">{moreRoomsPage + 1} / {moreRoomsPageCount}</Text>
+                <Text color="gray.500" fontSize="10px">{moreRoomsItems.length} načtených streamů</Text>
                 <Flex gap="1">
-                  <IconButton
-                    aria-label="Další stránka More Rooms"
-                    icon={<ChevronRightIcon />}
-                    size="xs"
-                    variant="ghost"
-                    color="gray.300"
-                    onClick={() => setMoreRoomsPage((page) => (page + 1) % moreRoomsPageCount)}
-                    isDisabled={moreRoomsPageCount <= 1}
-                  />
                   <IconButton
                     aria-label="Přesunout panel More Rooms"
                     icon={<ChevronRightIcon />}
