@@ -697,9 +697,11 @@ export const Sidebar = () => {
               {...moreRoomsPositionStyles}
               w="340px"
               zIndex={30}
-              maxH="360px"
-              minH="120px"
-              overflowY="auto"
+              minW="280px"
+              maxW="80vw"
+              minH="180px"
+              maxH="70vh"
+              overflow="auto"
               overscrollBehavior="contain"
               borderWidth="1px"
               borderColor="purple.300"
@@ -707,6 +709,7 @@ export const Sidebar = () => {
               bg="#111807"
               p="2"
               boxShadow="0 12px 28px rgba(0,0,0,.65)"
+              sx={{ resize: 'both' }}
             >
               <Flex
                 position="sticky"
