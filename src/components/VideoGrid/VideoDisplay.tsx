@@ -532,7 +532,7 @@ export const VideoDisplay = ({
         cursor={slot ? 'grab' : 'pointer'}
       >
         {slot ? (
-          <Box ref={mediaRootRef} position="absolute" inset={0} display={isFullscreenActive ? 'none' : 'block'}>
+          <Box ref={mediaRootRef} position="absolute" inset={0} opacity={isFullscreenActive ? 0 : 1} pointerEvents={isFullscreenActive ? 'none' : 'auto'}>
             {isDisplay && displayStream ? (
               <DisplayMediaPlayer
                 stream={displayStream}
@@ -549,7 +549,7 @@ export const VideoDisplay = ({
                 width="100%"
                 height="100%"
                 url={resolvedUrl}
-                playing
+                playing={!isFullscreenActive}
                 muted={isFullscreenActive || audio.muted}
                 volume={audio.volume}
                 config={{
