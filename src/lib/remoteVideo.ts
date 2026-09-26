@@ -1,7 +1,10 @@
 import { resolveChaturbateStreamUrl } from './chaturbate';
 import { isDirectMediaUrl } from './sourceDiscovery';
 
-const MAX_CONCURRENT_RESOLUTIONS = 4;
+// Každý gridový slot může rozpoznávat svůj stream samostatně.
+// Limit odpovídá maximálnímu počtu slotů v aplikaci, takže streamy nečekají
+// ve společné frontě jeden na druhý.
+const MAX_CONCURRENT_RESOLUTIONS = 18;
 let activeResolutions = 0;
 const resolutionQueue: Array<{
   task: () => Promise<string | null>;
