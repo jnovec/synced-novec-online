@@ -2,6 +2,7 @@ import { ChannelItem } from '@/components/Sidebar/ChannelItem';
 import { SettingsAccordionItem } from '@/components/Sidebar/Settings/SettingsAccordionItem';
 import { useChannelsContext } from '@/contexts/useChannels';
 import { useControlsContext } from '@/contexts/useControls';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { findFirstEmptyVisibleSlot } from '@/lib/slotSelection';
 import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { AddIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, RepeatIcon } from '@chakra-ui/icons';
@@ -87,6 +88,8 @@ const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSele
 
 export const Sidebar = () => {
   const toast = useToast();
+  const { getLocalStorage, setLocalStorage } = useLocalStorage();
+  const sidebarPreferencesLoadedRef = useRef(false);
   const { channels, isLoadingSource, sourceError, loadSource, saveChannelToPlaylist } = useChannelsContext();
   const { selectedVideo, setSelectedVideo, slots, gridSize, setSlotVideo } = useControlsContext();
   const [minimized, setMinimized] = useState<boolean>(false);
@@ -120,6 +123,37 @@ export const Sidebar = () => {
     { right: '16px', top: '16px' },
     { left: '16px', top: '16px' },
   ][moreRoomsPosition];
+
+  useEffect(() => {
+    const saved = getLocalStorage('synced-sidebar-preferences');
+    if (saved && typeof saved === 'object') {
+      const preferences = saved as Record<string, unknown>;
+      if (preferences.sidebarMode === 'sources' || preferences.sidebarMode === 'settings') setSidebarMode(preferences.sidebarMode);
+      if (typeof preferences.selectedCategoryIndex === 'number') setSelectedCategoryIndex(Math.max(0, preferences.selectedCategoryIndex));
+      if (typeof preferences.isMoreRoomsOpen === 'boolean') setIsMoreRoomsOpen(preferences.isMoreRoomsOpen);
+      if (typeof preferences.isMoreRoomsMinimized === 'boolean') setIsMoreRoomsMinimized(preferences.isMoreRoomsMinimized);
+      if (typeof preferences.moreRoomsHeight === 'number') setMoreRoomsHeight(Math.max(180, preferences.moreRoomsHeight));
+      if (typeof preferences.moreRoomsPosition === 'number') setMoreRoomsPosition(((preferences.moreRoomsPosition % 4) + 4) % 4);
+      if (typeof preferences.chaturbateTag === 'string') setChaturbateTag(preferences.chaturbateTag);
+      if (typeof preferences.sourceUrl === 'string') setSourceUrl(preferences.sourceUrl);
+    }
+    sidebarPreferencesLoadedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarPreferencesLoadedRef.current) return;
+    setLocalStorage('synced-sidebar-preferences', {
+      sidebarMode,
+      selectedCategoryIndex,
+      isMoreRoomsOpen,
+      isMoreRoomsMinimized,
+      moreRoomsHeight,
+      moreRoomsPosition,
+      chaturbateTag,
+      sourceUrl,
+    });
+  }, [chaturbateTag, isMoreRoomsMinimized, isMoreRoomsOpen, moreRoomsHeight, moreRoomsPosition, selectedCategoryIndex, setLocalStorage, sidebarMode, sourceUrl]);
 
   const isChaturbateSource = /(?:^|\/\/)(?:www\.)?chaturbate\.com(?:\/|$)/i.test(sourceUrl.trim());
   const movePreview = (direction: -1 | 1) => {
