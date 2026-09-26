@@ -25,6 +25,7 @@ export const Sidebar = () => {
   const { selectedVideo, setSelectedVideo, slots, gridSize, setSlotVideo } = useControlsContext();
   const [minimized, setMinimized] = useState<boolean>(false);
   const [sidebarMode, setSidebarMode] = useState<'sources' | 'settings'>('sources');
+  const [expandedSourceCategory, setExpandedSourceCategory] = useState<number | number[]>([]);
   const [sourceUrl, setSourceUrl] = useState('');
   const [chaturbateTag, setChaturbateTag] = useState('18');
   const [chaturbateTags, setChaturbateTags] = useState(defaultChaturbateTags);
@@ -39,6 +40,7 @@ export const Sidebar = () => {
   const lastPreviewProgress = useRef(0);
   const currentStreamCount = Object.values(channels).reduce((sum, group) => sum + group.length, 0);
   const previewCandidates = Object.values(channels).flat();
+  const sourceCategories = Object.entries(channels);
   const isChaturbateSource = /(?:^|\/\/)(?:www\.)?chaturbate\.com(?:\/|$)/i.test(sourceUrl.trim());
   const movePreview = (direction: -1 | 1) => {
     if (!previewCandidates.length) return;
@@ -112,6 +114,12 @@ export const Sidebar = () => {
       window.clearTimeout(retry);
     };
   }, [selectedVideo?.url]);
+
+  useEffect(() => {
+    if (!selectedVideo?.url) return;
+    const categoryIndex = sourceCategories.findIndex(([, items]) => items.some((item) => item.url === selectedVideo.url));
+    if (categoryIndex >= 0) setExpandedSourceCategory(categoryIndex);
+  }, [selectedVideo?.url, sourceCategories]);
 
   useEffect(() => {
     if (!resolvedPreviewUrl) return;
@@ -593,8 +601,8 @@ export const Sidebar = () => {
                 {sourceError}
               </Text>
             )}
-            <Accordion allowToggle>
-              {Object.entries(channels).map(([category, sourceChannels]) => (
+            <Accordion allowToggle index={expandedSourceCategory} onChange={setExpandedSourceCategory}>
+              {sourceCategories.map(([category, sourceChannels]) => (
                 <SidebarAccordionItem key={category} title={category} innerData={sourceChannels} />
               ))}
             </Accordion>
