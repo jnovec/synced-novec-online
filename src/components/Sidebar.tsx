@@ -588,18 +588,12 @@ export const Sidebar = () => {
           <Divider order={3} borderColor="whiteAlpha.300" />
 
           <Flex order={4} flex="1" minH={0} direction="column" overflow="hidden">
-            <Flex alignItems="center" justifyContent="space-between" gap="2" px="1" pb="2">
-              <Text color="gray.400" fontSize="xs">
-                {isLoadingSource ? 'Načítám web…' : `${currentStreamCount} uložených streamů`}
-              </Text>
-            </Flex>
             {sourceError && (
               <Text color="red.300" fontSize="xs" px="1" pb="2">
                 {sourceError}
               </Text>
             )}
             <Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="2" mb="3">
-              <Text color="gray.400" fontSize="xs" px="2" pb="2">Kategorie streamů</Text>
               <Select
                 size="sm"
                 value={selectedCategoryIndex}
