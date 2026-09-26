@@ -88,6 +88,7 @@ export const VideoDisplay = ({
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const slotKeyRef = useRef<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSlotDragOver, setIsSlotDragOver] = useState(false);
   const [isSlotDragging, setIsSlotDragging] = useState(false);
@@ -148,7 +149,11 @@ export const VideoDisplay = ({
     }
 
     setLoading(true);
-    setResolvedUrl(null);
+    const slotKey = `${slot.url}\n${slot.playbackUrl ?? ''}`;
+    if (slotKeyRef.current !== slotKey) {
+      slotKeyRef.current = slotKey;
+      setResolvedUrl(null);
+    }
 
     const resolveStream = async () => {
       for (let attempt = 1; attempt <= STREAM_RESOLVE_ATTEMPTS; attempt += 1) {
@@ -539,7 +544,7 @@ export const VideoDisplay = ({
                 muted={isFullscreenActive || audio.muted}
                 volume={audio.volume}
               />
-            ) : loading ? (
+            ) : loading && !resolvedUrl ? (
               <Flex h="full" alignItems="center" justifyContent="center" direction="column" gap="2" color="gray.400">
                 <Spinner size="sm" />
                 <Text fontSize="xs">Načítám…</Text>
