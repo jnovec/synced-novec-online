@@ -19,6 +19,66 @@ const waitForRetry = (attempt: number) => new Promise<void>((resolve) => {
   window.setTimeout(resolve, 700 * attempt);
 });
 
+interface MoreRoomCardProps {
+  name: string;
+  location: string;
+  url: string;
+  logo?: string;
+  playbackUrl?: string;
+  selected: boolean;
+  onSelect: () => void;
+}
+
+const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSelect }: MoreRoomCardProps) => {
+  const handleDragStart = (event: DragEvent<HTMLDivElement>) => {
+    event.dataTransfer.effectAllowed = 'copy';
+    event.dataTransfer.setData('videoUrl', url);
+    event.dataTransfer.setData('videoName', name);
+    event.dataTransfer.setData('text/uri-list', url);
+    event.dataTransfer.setData('text/plain', url);
+    if (playbackUrl) event.dataTransfer.setData('videoPlaybackUrl', playbackUrl);
+  };
+
+  return (
+    <Box
+      draggable
+      onDragStart={handleDragStart}
+      onClick={onSelect}
+      cursor="grab"
+      overflow="hidden"
+      borderWidth="1px"
+      borderColor={selected ? 'purple.300' : 'whiteAlpha.200'}
+      borderRadius="md"
+      bg="blackAlpha.500"
+      _hover={{ borderColor: 'purple.200', transform: 'translateY(-1px)' }}
+      transition="all 120ms ease"
+    >
+      <Box h="76px" bg="black" position="relative" overflow="hidden">
+        {playbackUrl ? (
+          <ReactPlayer
+            url={playbackUrl}
+            playing
+            muted
+            loop
+            width="100%"
+            height="100%"
+            playsinline
+            config={{ file: { forceHLS: true } }}
+            style={{ objectFit: 'cover', pointerEvents: 'none' }}
+          />
+        ) : logo ? (
+          <Image src={logo} alt={name} w="100%" h="100%" objectFit="cover" />
+        ) : null}
+        <Badge position="absolute" left="1" bottom="1" colorScheme="blackAlpha" fontSize="9px">LIVE</Badge>
+      </Box>
+      <Box px="2" py="1">
+        <Text color="#EEEEEC" fontSize="xs" fontWeight="semibold" noOfLines={1}>{name}</Text>
+        <Text color="gray.400" fontSize="10px" noOfLines={1}>{location}</Text>
+      </Box>
+    </Box>
+  );
+};
+
 export const Sidebar = () => {
   const toast = useToast();
   const { channels, isLoadingSource, sourceError, loadSource, saveChannelToPlaylist } = useChannelsContext();
@@ -609,6 +669,22 @@ export const Sidebar = () => {
                   <option key={category} value={categoryIndex}>{category} ({sourceChannels.length})</option>
                 ))}
               </Select>
+            </Box>
+            <Box mb="2" borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="2">
+              <Flex alignItems="center" justifyContent="space-between" mb="2">
+                <Text color="gray.300" fontSize="xs" fontWeight="semibold">More Rooms</Text>
+                <Text color="gray.500" fontSize="10px">Přetáhni do okna</Text>
+              </Flex>
+              <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
+                {(sourceCategories[selectedCategoryIndex]?.[1] ?? []).slice(0, 6).map((channel) => (
+                  <MoreRoomCard
+                    key={`more-room-${channel.url}`}
+                    {...channel}
+                    selected={selectedVideo?.url === channel.url}
+                    onSelect={() => setSelectedVideo({ url: channel.url, name: channel.name, ...(channel.playbackUrl ? { playbackUrl: channel.playbackUrl } : {}) })}
+                  />
+                ))}
+              </Box>
             </Box>
             <Box flex="1" minH={0} overflowY="auto" pr="1">
               {sourceCategories[selectedCategoryIndex]?.[1].map((channel) => (
