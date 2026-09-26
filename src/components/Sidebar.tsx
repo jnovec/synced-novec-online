@@ -87,6 +87,14 @@ export const Sidebar = () => {
   }, [selectedVideo?.playbackUrl, selectedVideo?.url]);
 
   useEffect(() => {
+    if (!selectedVideo?.url) return;
+    const selectedItem = Array.from(document.querySelectorAll<HTMLElement>('[data-channel-url]')).find(
+      (element) => element.dataset.channelUrl === selectedVideo.url
+    );
+    selectedItem?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [selectedVideo?.url]);
+
+  useEffect(() => {
     if (!resolvedPreviewUrl) return;
 
     lastPreviewProgress.current = Date.now();

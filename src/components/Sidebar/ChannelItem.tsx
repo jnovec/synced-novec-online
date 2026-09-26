@@ -26,6 +26,7 @@ export const ChannelItem = ({ name, location, url, logo, playbackUrl }: ChannelI
 
   return (
     <Flex
+      data-channel-url={url}
       alignItems="center"
       my="1"
       py="1"
