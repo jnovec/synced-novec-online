@@ -14,6 +14,7 @@ import {
   VideoSlot,
 } from '@/lib/displayMedia';
 import { AppSession, createAppSession, normalizeAppSession } from '@/lib/session';
+import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import posthog from 'posthog-js';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -74,8 +75,26 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
     const savedSlots = normalizeSlots(getLocalStorage(SLOT_STORAGE_KEY));
     setSlotsHook(savedSlots);
 
+    let cancelled = false;
+    const checkSavedStreams = async () => {
+      const checkedSlots = await Promise.all(
+        savedSlots.map(async (slot) => {
+          if (!slot || shouldEmbedRemotePage(slot.url)) return slot;
+          const streamUrl = await resolveRemoteStreamUrl(slot.url, slot.playbackUrl);
+          return streamUrl ? slot : null;
+        })
+      );
+
+      if (!cancelled) setSlotsHook(checkedSlots);
+    };
+
+    void checkSavedStreams();
+
     const savedPreview = normalizeVideoSlot(getLocalStorage(PREVIEW_STORAGE_KEY));
     setSelectedVideoHook(savedPreview);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
