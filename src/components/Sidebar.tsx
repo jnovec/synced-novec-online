@@ -677,10 +677,10 @@ export const Sidebar = () => {
               </Flex>
             </Box>
             {isMoreRoomsOpen && <Box
-              position="absolute"
-              top="52px"
-              left="0"
-              right="0"
+              position="fixed"
+              left="16px"
+              bottom="16px"
+              w="340px"
               zIndex={30}
               maxH="360px"
               minH="120px"
