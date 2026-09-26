@@ -24,6 +24,7 @@ export const Sidebar = () => {
   const { channels, isLoadingSource, sourceError, loadSource, saveChannelToPlaylist } = useChannelsContext();
   const { selectedVideo, setSelectedVideo, slots, gridSize, setSlotVideo } = useControlsContext();
   const [minimized, setMinimized] = useState<boolean>(false);
+  const [sidebarMode, setSidebarMode] = useState<'sources' | 'settings'>('sources');
   const [sourceUrl, setSourceUrl] = useState('');
   const [chaturbateTag, setChaturbateTag] = useState('18');
   const [chaturbateTags, setChaturbateTags] = useState(defaultChaturbateTags);
@@ -340,6 +341,22 @@ export const Sidebar = () => {
 
       {!minimized && (
         <Flex flexDir="column" gap="3" minH={0} flex="1" overflow="hidden">
+          <Flex gap="2" borderBottomWidth="1px" borderColor="whiteAlpha.300" pb="2">
+            <Button size="sm" flex="1" colorScheme={sidebarMode === 'sources' ? 'blue' : 'gray'} onClick={() => setSidebarMode('sources')}>
+              Zdroje
+            </Button>
+            <Button size="sm" flex="1" colorScheme={sidebarMode === 'settings' ? 'purple' : 'gray'} onClick={() => setSidebarMode('settings')}>
+              Settings
+            </Button>
+          </Flex>
+          {sidebarMode === 'settings' ? (
+            <Box flex="1" minH={0} overflowY="auto" pr="1" borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="3">
+              <Accordion allowToggle defaultIndex={0}>
+                <SettingsAccordionItem />
+              </Accordion>
+            </Box>
+          ) : (
+            <Flex flexDir="column" gap="3" minH={0} flex="1" overflow="hidden">
           <Box order={2} borderWidth="1px" borderColor={isPreviewDropActive ? 'cyan.300' : 'whiteAlpha.200'} borderRadius="lg" bg="blackAlpha.300" p="3">
             <Flex justifyContent="space-between" alignItems="center" mb="2">
               <Box minW={0}>
@@ -580,9 +597,10 @@ export const Sidebar = () => {
               {Object.entries(channels).map(([category, sourceChannels]) => (
                 <SidebarAccordionItem key={category} title={category} innerData={sourceChannels} />
               ))}
-              <SettingsAccordionItem />
             </Accordion>
           </Box>
+            </Flex>
+          )}
         </Flex>
       )}
 
