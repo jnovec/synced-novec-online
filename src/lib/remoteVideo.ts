@@ -78,7 +78,7 @@ export const shouldEmbedRemotePage = (rawUrl: string): boolean => {
   }
 };
 
-export const normalizeRemoteVideo = (rawUrl: string, suppliedName = '', playbackUrl = '') => {
+export const normalizeRemoteVideo = (rawUrl: string, suppliedName = '', playbackUrl = '', thumbnailUrl = '') => {
   const trimmed = rawUrl.trim();
   if (!trimmed) return null;
   const withProtocol = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -94,6 +94,7 @@ export const normalizeRemoteVideo = (rawUrl: string, suppliedName = '', playback
       name: suppliedName.trim() || fallbackName,
       sourceType: 'remote' as const,
       ...(normalizedPlaybackUrl ? { playbackUrl: normalizedPlaybackUrl } : {}),
+      ...(thumbnailUrl ? { thumbnailUrl } : {}),
     };
   } catch {
     return null;

@@ -17,6 +17,7 @@ export const ChannelItem = ({ name, location, url, logo, playbackUrl }: ChannelI
     e.dataTransfer.setData('videoUrl', url);
     e.dataTransfer.setData('videoName', name);
     if (playbackUrl) e.dataTransfer.setData('videoPlaybackUrl', playbackUrl);
+    if (logo) e.dataTransfer.setData('videoThumbnailUrl', logo);
     return;
   };
 

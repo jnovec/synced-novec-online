@@ -37,6 +37,7 @@ const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSele
     event.dataTransfer.setData('text/uri-list', url);
     event.dataTransfer.setData('text/plain', url);
     if (playbackUrl) event.dataTransfer.setData('videoPlaybackUrl', playbackUrl);
+    if (logo) event.dataTransfer.setData('videoThumbnailUrl', logo);
   };
 
   return (

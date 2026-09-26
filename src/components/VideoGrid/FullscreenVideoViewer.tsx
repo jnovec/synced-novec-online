@@ -271,9 +271,9 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
               <DisplayMediaPlayer stream={currentDisplayStream} muted={audio.muted} volume={audio.volume} />
             </Box>
           ) : loading ? (
-            <Box position="absolute" inset={0} bg="black" />
+            <Box position="absolute" inset={0} bg="black" backgroundImage={currentSlot?.thumbnailUrl ? `url(${currentSlot.thumbnailUrl})` : undefined} backgroundSize="cover" backgroundPosition="center" />
           ) : resolvedUrl ? (
-            <Box position="absolute" inset={0}>
+            <Box position="absolute" inset={0} bg="black" backgroundImage={currentSlot?.thumbnailUrl ? `url(${currentSlot.thumbnailUrl})` : undefined} backgroundSize="cover" backgroundPosition="center">
               <ReactPlayer
                 width="100%"
                 height="100%"

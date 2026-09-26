@@ -312,7 +312,8 @@ export const VideoDisplay = ({
       event.dataTransfer.getData('text/plain');
     const suppliedName = event.dataTransfer.getData('videoName');
     const playbackUrl = event.dataTransfer.getData('videoPlaybackUrl');
-    const video = normalizeRemoteVideo(url, suppliedName, playbackUrl);
+    const thumbnailUrl = event.dataTransfer.getData('videoThumbnailUrl');
+    const video = normalizeRemoteVideo(url, suppliedName, playbackUrl, thumbnailUrl);
 
     if (!video) {
       toast({
