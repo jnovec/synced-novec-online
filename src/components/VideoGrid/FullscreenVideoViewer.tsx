@@ -1,7 +1,7 @@
 import { useControlsContext, VideoSlot } from '@/contexts/useControls';
 import { applyMediaAudio } from '@/lib/audioControls';
 import { isDisplaySlot } from '@/lib/displayMedia';
-import { shouldEmbedRemotePage } from '@/lib/remoteVideo';
+import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, RepeatIcon } from '@chakra-ui/icons';
 import {
   Box,
@@ -175,8 +175,21 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
     } else if (shouldEmbedRemotePage(currentSlot.url)) {
       setLoading(false);
     } else {
-      setLoading(false);
-      setStreamError('Stream nemá připravený přehrávací odkaz.');
+      void resolveRemoteStreamUrl(currentSlot.url).then((streamUrl) => {
+        if (cancelled) return;
+        if (streamUrl) {
+          setResolvedUrl(streamUrl);
+          setLoading(false);
+        } else {
+          setLoading(false);
+          setStreamError('Stream se nepodařilo načíst. Zkus ho obnovit.');
+        }
+      }).catch(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setStreamError('Stream se nepodařilo načíst. Zkus ho obnovit.');
+        }
+      });
     }
 
     return () => {
