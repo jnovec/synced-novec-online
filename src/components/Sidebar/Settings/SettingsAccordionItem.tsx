@@ -25,6 +25,7 @@ import { AddChannelModal } from './AddChannelModal';
 import { DeleteCategoryModal } from './DeleteCategoryModal';
 import { DeleteChannelModal } from './DeleteChannelModal';
 import { GamepadSettings } from './GamepadSettings';
+import { ButtplugSettings } from './ButtplugSettings';
 import { SessionSettings } from './SessionSettings';
 
 export const SettingsAccordionItem = () => {
@@ -188,6 +189,8 @@ export const SettingsAccordionItem = () => {
             </Flex>
             <Divider color="#EEEEEC" />
             <GamepadSettings />
+            <Divider color="#EEEEEC" />
+            <ButtplugSettings />
             <Divider color="#EEEEEC" />
             <SessionSettings />
             <Divider color="#EEEEEC" />

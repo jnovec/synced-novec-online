@@ -1,5 +1,7 @@
+import { useButtplugContext } from '@/contexts/useButtplug';
 import { useControlsContext } from '@/contexts/useControls';
 import { useAudioGamepadVibration } from '@/hooks/useAudioGamepadVibration';
+import { useAudioToyVibration } from '@/hooks/useAudioToyVibration';
 import { applyMediaAudio } from '@/lib/audioControls';
 import { isDisplaySlot } from '@/lib/displayMedia';
 import type { VideoSlot } from '@/lib/displayMedia';
@@ -21,6 +23,7 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
+  Select,
   Slider,
   SliderFilledTrack,
   SliderThumb,
@@ -93,20 +96,38 @@ export const VideoDisplay = ({
   const [sharingDisplay, setSharingDisplay] = useState(false);
   const [gamepadVibrationEnabled, setGamepadVibrationEnabled] = useState(false);
   const [vibrationSensitivity, setVibrationSensitivity] = useState(2.4);
+  const [toyVibrationEnabled, setToyVibrationEnabled] = useState(false);
+  const [toySensitivity, setToySensitivity] = useState(2.4);
+  const [selectedToyIndex, setSelectedToyIndex] = useState<number | null>(null);
   const [isDuplicateHighlighted, setIsDuplicateHighlighted] = useState(false);
   const mediaRootRef = useRef<HTMLDivElement>(null);
   const playbackFailuresRef = useRef(0);
   const lastPlaybackProgressRef = useRef(0);
   const recoveryPendingRef = useRef(false);
+  const { status: buttplugStatus, devices: toyDevices, vibrateDevice, stopDevice } = useButtplugContext();
   const { status: vibrationStatus, level: vibrationLevel } = useAudioGamepadVibration({
     stream: isDisplay ? displayStream : null,
     enabled: gamepadVibrationEnabled,
     sensitivity: vibrationSensitivity,
   });
+  const { status: toyVibrationStatus, level: toyVibrationLevel } = useAudioToyVibration({
+    stream: isDisplay ? displayStream : null,
+    enabled: toyVibrationEnabled,
+    sensitivity: toySensitivity,
+    deviceIndex: selectedToyIndex,
+  });
 
   useEffect(() => {
     if (!isDisplay || !displayStream) setGamepadVibrationEnabled(false);
   }, [displayStream, isDisplay]);
+
+  useEffect(() => {
+    if (!isDisplay || !displayStream) setToyVibrationEnabled(false);
+  }, [displayStream, isDisplay]);
+
+  useEffect(() => {
+    if (selectedToyIndex !== null && !toyDevices.some((device) => device.index === selectedToyIndex)) setSelectedToyIndex(null);
+  }, [selectedToyIndex, toyDevices]);
 
   useEffect(() => {
     const handleDuplicateHighlight = (event: Event) => {
@@ -429,6 +450,24 @@ export const VideoDisplay = ({
     });
   };
 
+  const handleToyToggle = () => {
+    if (!toyVibrationEnabled && buttplugStatus !== 'connected') {
+      toast({ title: 'Bluetooth hračka není připojená', description: 'Připoj ji v Nastavení → Hračky (Bluetooth).', status: 'warning', duration: 3500 });
+      return;
+    }
+    if (!toyVibrationEnabled && !toyDevices.length) {
+      toast({ title: 'Hračka nebyla nalezena', description: 'Spusť skenování v Nastavení → Hračky.', status: 'warning', duration: 3500 });
+      return;
+    }
+    setToyVibrationEnabled((value) => !value);
+  };
+
+  const handleToyTest = () => {
+    const target = selectedToyIndex ?? toyDevices[0]?.index;
+    if (target === undefined) return;
+    void vibrateDevice(target, 0.8).then(() => window.setTimeout(() => void stopDevice(target), 600));
+  };
+
   return (
     <>
       <GridItem
@@ -652,6 +691,22 @@ export const VideoDisplay = ({
                     {vibrationStatus === 'running' ? `${Math.round(vibrationLevel * 100)}%` : vibrationStatus}
                   </Badge>
                 )}
+                <Button size="xs" h="20px" px="2" colorScheme={toyVibrationEnabled ? 'purple' : 'gray'} onClick={handleToyToggle}>
+                  {toyVibrationEnabled ? 'Hračka ON' : 'Hračka'}
+                </Button>
+                <Button size="xs" h="20px" px="2" variant="outline" colorScheme="purple" onClick={handleToyTest} isDisabled={!toyDevices.length}>
+                  Test
+                </Button>
+                {toyDevices.length > 1 && (
+                  <Select size="xs" w="110px" value={selectedToyIndex ?? ''} onChange={(event) => setSelectedToyIndex(event.target.value ? Number(event.target.value) : null)} aria-label="Hračka pro slot">
+                    <option value="">Auto</option>
+                    {toyDevices.map((device) => <option key={device.index} value={device.index}>{device.name}</option>)}
+                  </Select>
+                )}
+                <Slider aria-label={`Citlivost hračky slotu ${index + 1}`} value={toySensitivity * 10} onChange={(value) => setToySensitivity(value / 10)} min={5} max={50} step={1} w="60px" focusThumbOnChange={false}>
+                  <SliderTrack bg="whiteAlpha.400"><SliderFilledTrack bg="purple.300" /></SliderTrack><SliderThumb boxSize="10px" />
+                </Slider>
+                {toyVibrationEnabled && <Badge colorScheme={toyVibrationStatus === 'running' ? 'green' : 'orange'} fontSize="0.6rem">{toyVibrationStatus === 'running' ? `${Math.round(toyVibrationLevel * 100)}%` : toyVibrationStatus}</Badge>}
               </Flex>
             )}
             <Flex

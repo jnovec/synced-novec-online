@@ -20,6 +20,8 @@
     "@types/node": "20.4.5",
     "@types/react": "18.2.17",
     "@types/react-dom": "18.2.7",
+    "buttplug": "^3.2.2",
+    "buttplug-wasm": "^2.0.1",
     "eslint-config-next": "^15.5.24",
     "framer-motion": "^10.15.0",
     "next": "^15.5.24",

@@ -21,7 +21,8 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <ControlsContextProvider>
       <ChannelsContextProvider>
-        <ChakraProvider>
+        <ButtplugContextProvider>
+          <ChakraProvider>
           <Script strategy="afterInteractive" src={`https://www.googletagmanager.com/gtag/js?id=G-RYL4H4QV41`} />
           <Script
             id="google-analytics"
@@ -37,8 +38,10 @@ export default function App({ Component, pageProps }: AppProps) {
             }}
           />
           <Component {...pageProps} />
-        </ChakraProvider>
+          </ChakraProvider>
+        </ButtplugContextProvider>
       </ChannelsContextProvider>
     </ControlsContextProvider>
   );
 }
+import { ButtplugContextProvider } from '@/contexts/useButtplug';
