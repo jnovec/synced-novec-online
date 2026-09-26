@@ -15,7 +15,6 @@ import {
   SliderFilledTrack,
   SliderThumb,
   SliderTrack,
-  Spinner,
   Text,
 } from '@chakra-ui/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -243,10 +242,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
               <DisplayMediaPlayer stream={currentDisplayStream} muted={audio.muted} volume={audio.volume} />
             </Box>
           ) : loading ? (
-            <Flex direction="column" alignItems="center" gap="3" color="gray.300">
-              <Spinner size="lg" />
-              <Text>Načítám {currentSlot?.name}…</Text>
-            </Flex>
+            <Box position="absolute" inset={0} bg="black" />
           ) : resolvedUrl ? (
             <Box position="absolute" inset={0}>
               <ReactPlayer
@@ -271,16 +267,13 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
                     },
                   },
                 }}
-                style={{ opacity: mediaReady ? 1 : 0 }}
+                style={{
+                  opacity: mediaReady ? 1 : 0,
+                  transition: 'opacity 480ms ease-in-out',
+                }}
                 onReady={() => setMediaReady(true)}
                 onError={handlePlayerError}
               />
-              {!mediaReady && (
-                <Flex position="absolute" inset={0} direction="column" alignItems="center" justifyContent="center" gap="3" color="gray.300">
-                  <Spinner size="lg" />
-                  <Text>Spouštím {currentSlot?.name}…</Text>
-                </Flex>
-              )}
             </Box>
           ) : currentSlot && shouldEmbedRemotePage(currentSlot.url) ? (
             <Box
