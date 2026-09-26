@@ -36,6 +36,8 @@ import { DisplayMediaPlayer } from './DisplayMediaPlayer';
 const DUPLICATE_SOURCE_EVENT = 'synced:duplicate-source-highlight';
 const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 const STREAM_RESOLVE_ATTEMPTS = 3;
+const PLAYBACK_STALL_MS = 12_000;
+const PLAYBACK_WATCH_INTERVAL_MS = 4_000;
 
 const waitFor = (milliseconds: number) => new Promise<void>((resolve) => {
   window.setTimeout(resolve, milliseconds);
@@ -94,6 +96,8 @@ export const VideoDisplay = ({
   const [isDuplicateHighlighted, setIsDuplicateHighlighted] = useState(false);
   const mediaRootRef = useRef<HTMLDivElement>(null);
   const playbackFailuresRef = useRef(0);
+  const lastPlaybackProgressRef = useRef(0);
+  const recoveryPendingRef = useRef(false);
   const { status: vibrationStatus, level: vibrationLevel } = useAudioGamepadVibration({
     stream: isDisplay ? displayStream : null,
     enabled: gamepadVibrationEnabled,
@@ -126,10 +130,6 @@ export const VideoDisplay = ({
     setResolvedUrl(null);
 
     const resolveStream = async () => {
-      // Do not ask the provider and tunnel to open every tile at the same moment.
-      // A later slot starts just after the earlier one has requested its playlist.
-      if (reloadKey === 0 && index > 0) await waitFor(Math.min(index, 8) * 180);
-
       for (let attempt = 1; attempt <= STREAM_RESOLVE_ATTEMPTS; attempt += 1) {
         try {
           const streamUrl = await resolveRemoteStreamUrl(slot.url, slot.playbackUrl);
@@ -137,6 +137,8 @@ export const VideoDisplay = ({
           if (streamUrl || shouldEmbedRemotePage(slot.url)) {
             setResolvedUrl(streamUrl);
             setLoading(false);
+            recoveryPendingRef.current = false;
+            lastPlaybackProgressRef.current = Date.now();
             return;
           }
         } catch {
@@ -146,7 +148,10 @@ export const VideoDisplay = ({
         if (attempt < STREAM_RESOLVE_ATTEMPTS) await waitFor(700 * attempt);
       }
 
-      if (!cancelled) setLoading(false);
+      if (!cancelled) {
+        setLoading(false);
+        recoveryPendingRef.current = false;
+      }
     };
 
     void resolveStream();
@@ -158,13 +163,31 @@ export const VideoDisplay = ({
 
   useEffect(() => {
     playbackFailuresRef.current = 0;
+    recoveryPendingRef.current = false;
   }, [slot?.playbackUrl, slot?.url]);
 
-  const handlePlayerError = () => {
-    if (playbackFailuresRef.current >= 2) return;
+  const refreshStalledStream = () => {
+    if (recoveryPendingRef.current || !slot?.url || isDisplay) return;
+    recoveryPendingRef.current = true;
     playbackFailuresRef.current += 1;
     setReloadKey((current) => current + 1);
   };
+
+  const handlePlayerProgress = () => {
+    lastPlaybackProgressRef.current = Date.now();
+    playbackFailuresRef.current = 0;
+  };
+
+  useEffect(() => {
+    if (!resolvedUrl || isDisplay) return;
+
+    lastPlaybackProgressRef.current = Date.now();
+    const watchdog = window.setInterval(() => {
+      if (Date.now() - lastPlaybackProgressRef.current >= PLAYBACK_STALL_MS) refreshStalledStream();
+    }, PLAYBACK_WATCH_INTERVAL_MS);
+
+    return () => window.clearInterval(watchdog);
+  }, [isDisplay, resolvedUrl]);
 
   const handleClick = () => {
     if (slot) {
@@ -506,7 +529,8 @@ export const VideoDisplay = ({
                     },
                   },
                 }}
-                onError={handlePlayerError}
+                onError={refreshStalledStream}
+                onProgress={handlePlayerProgress}
                 style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
               />
             ) : slot && shouldEmbedRemotePage(slot.url) ? (
@@ -769,7 +793,7 @@ export const VideoDisplay = ({
             />
           </ModalBody>
           <ModalFooter gap="2" flexWrap="wrap">
-            <Button variant="outline" onClick={() => void handlePasteFromClipboard()}>
+            <Button colorScheme="cyan" bg="cyan.400" color="gray.900" _hover={{ bg: 'cyan.300' }} onClick={() => void handlePasteFromClipboard()}>
               Vložit ze schránky
             </Button>
             <Button
