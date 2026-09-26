@@ -87,6 +87,8 @@ export const Sidebar = () => {
   const [sidebarMode, setSidebarMode] = useState<'sources' | 'settings'>('sources');
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
   const [isMoreRoomsOpen, setIsMoreRoomsOpen] = useState(false);
+  const [moreRoomsPage, setMoreRoomsPage] = useState(0);
+  const [moreRoomsPosition, setMoreRoomsPosition] = useState(0);
   const [sourceUrl, setSourceUrl] = useState('');
   const [chaturbateTag, setChaturbateTag] = useState('18');
   const [chaturbateTags, setChaturbateTags] = useState(defaultChaturbateTags);
@@ -102,6 +104,20 @@ export const Sidebar = () => {
   const currentStreamCount = Object.values(channels).reduce((sum, group) => sum + group.length, 0);
   const previewCandidates = Object.values(channels).flat();
   const sourceCategories = useMemo(() => Object.entries(channels), [channels]);
+  const moreRoomsItems = sourceCategories[selectedCategoryIndex]?.[1] ?? [];
+  const moreRoomsPageSize = 12;
+  const moreRoomsPageCount = Math.max(1, Math.ceil(moreRoomsItems.length / moreRoomsPageSize));
+  const visibleMoreRooms = moreRoomsItems.slice(moreRoomsPage * moreRoomsPageSize, (moreRoomsPage + 1) * moreRoomsPageSize);
+  const moreRoomsPositionStyles = [
+    { left: '16px', bottom: '16px' },
+    { right: '16px', bottom: '16px' },
+    { right: '16px', top: '16px' },
+    { left: '16px', top: '16px' },
+  ][moreRoomsPosition];
+
+  useEffect(() => {
+    setMoreRoomsPage(0);
+  }, [selectedCategoryIndex]);
   const isChaturbateSource = /(?:^|\/\/)(?:www\.)?chaturbate\.com(?:\/|$)/i.test(sourceUrl.trim());
   const movePreview = (direction: -1 | 1) => {
     if (!previewCandidates.length) return;
@@ -678,8 +694,7 @@ export const Sidebar = () => {
             </Box>
             {isMoreRoomsOpen && <Box
               position="fixed"
-              left="16px"
-              bottom="16px"
+              {...moreRoomsPositionStyles}
               w="340px"
               zIndex={30}
               maxH="360px"
@@ -707,7 +722,7 @@ export const Sidebar = () => {
                 <Text color="gray.500" fontSize="10px">Přetáhni do okna</Text>
               </Flex>
               <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
-                {(sourceCategories[selectedCategoryIndex]?.[1] ?? []).slice(0, 12).map((channel) => (
+                {visibleMoreRooms.map((channel) => (
                   <MoreRoomCard
                     key={`more-room-${channel.url}`}
                     {...channel}
@@ -716,6 +731,36 @@ export const Sidebar = () => {
                   />
                 ))}
               </Box>
+              <Flex alignItems="center" justifyContent="space-between" mt="2" pt="2" borderTopWidth="1px" borderColor="whiteAlpha.200">
+                <IconButton
+                  aria-label="Předchozí stránka More Rooms"
+                  icon={<ChevronLeftIcon />}
+                  size="xs"
+                  variant="ghost"
+                  color="gray.300"
+                  onClick={() => setMoreRoomsPage((page) => (page - 1 + moreRoomsPageCount) % moreRoomsPageCount)}
+                  isDisabled={moreRoomsPageCount <= 1}
+                />
+                <Text color="gray.500" fontSize="10px">{moreRoomsPage + 1} / {moreRoomsPageCount}</Text>
+                <Flex gap="1">
+                  <IconButton
+                    aria-label="Další stránka More Rooms"
+                    icon={<ChevronRightIcon />}
+                    size="xs"
+                    variant="ghost"
+                    color="gray.300"
+                    onClick={() => setMoreRoomsPage((page) => (page + 1) % moreRoomsPageCount)}
+                    isDisabled={moreRoomsPageCount <= 1}
+                  />
+                  <IconButton
+                    aria-label="Přesunout panel More Rooms"
+                    icon={<ChevronRightIcon />}
+                    size="xs"
+                    colorScheme="purple"
+                    onClick={() => setMoreRoomsPosition((position) => (position + 1) % 4)}
+                  />
+                </Flex>
+              </Flex>
             </Box>}
             <Box flex="1" minH={0} overflowY="auto" pr="1">
               {sourceCategories[selectedCategoryIndex]?.[1].map((channel) => (
