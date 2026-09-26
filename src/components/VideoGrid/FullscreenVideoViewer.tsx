@@ -38,6 +38,8 @@ const waitForRetry = (attempt: number) => new Promise<void>((resolve) => {
   window.setTimeout(resolve, 700 * attempt);
 });
 
+const FULLSCREEN_EXPAND_MS = 480;
+
 export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: FullscreenVideoViewerProps) => {
   const { audioSettings, displayStreams, setSlotMuted, setSlotVolume } = useControlsContext();
   const [currentIndex, setCurrentIndex] = useState<number | null>(initialIndex);
@@ -173,6 +175,8 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
     setStreamError(null);
 
     const resolveStream = async () => {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, FULLSCREEN_EXPAND_MS));
+      if (cancelled) return;
       for (let attempt = 1; attempt <= STREAM_RESOLVE_ATTEMPTS; attempt += 1) {
         try {
           const streamUrl = await resolveRemoteStreamUrl(currentSlot.url, currentSlot.playbackUrl);
@@ -222,7 +226,32 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="full" motionPreset="slideInBottom" preserveScrollBarGap>
-      <ModalContent bg="#030303" m="0" borderRadius="0" overflow="hidden">
+      <ModalContent
+        bg="#030303"
+        m="0"
+        borderRadius="0"
+        overflow="hidden"
+        border="2px solid"
+        borderColor="purple.400"
+        boxShadow="0 0 0 1px rgba(168,85,247,.9), 0 0 24px rgba(168,85,247,.95), inset 0 0 30px rgba(34,211,238,.18)"
+        sx={{
+          animation: `synced-fullscreen-expand ${FULLSCREEN_EXPAND_MS}ms cubic-bezier(.2,.8,.2,1) both`,
+          '@keyframes synced-fullscreen-expand': {
+            from: {
+              opacity: 0.72,
+              transform: 'scale(0.72)',
+              borderColor: '#22d3ee',
+              boxShadow: '0 0 0 2px rgba(34,211,238,.95), 0 0 48px rgba(34,211,238,.95), inset 0 0 40px rgba(168,85,247,.38)',
+            },
+            to: {
+              opacity: 1,
+              transform: 'scale(1)',
+              borderColor: '#a855f7',
+              boxShadow: '0 0 0 1px rgba(168,85,247,.9), 0 0 24px rgba(168,85,247,.95), inset 0 0 30px rgba(34,211,238,.18)',
+            },
+          },
+        }}
+      >
         <ModalBody
           ref={mediaRootRef}
           p="0"
