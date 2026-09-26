@@ -1,7 +1,7 @@
 import { useControlsContext, VideoSlot } from '@/contexts/useControls';
 import { applyMediaAudio } from '@/lib/audioControls';
 import { isDisplaySlot } from '@/lib/displayMedia';
-import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
+import { shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, RepeatIcon } from '@chakra-ui/icons';
 import {
   Box,
@@ -33,12 +33,6 @@ const GAMEPAD_LEFT_BUTTON = 14;
 const GAMEPAD_RIGHT_BUTTON = 15;
 const GAMEPAD_STICK_DEADZONE = 0.55;
 const GAMEPAD_REPEAT_MS = 260;
-const STREAM_RESOLVE_ATTEMPTS = 3;
-
-const waitForRetry = (attempt: number) => new Promise<void>((resolve) => {
-  window.setTimeout(resolve, 700 * attempt);
-});
-
 const FULLSCREEN_EXPAND_MS = 480;
 
 export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: FullscreenVideoViewerProps) => {
@@ -175,30 +169,15 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
     setResolvedUrl(null);
     setStreamError(null);
 
-    const resolveStream = async () => {
-      for (let attempt = 1; attempt <= STREAM_RESOLVE_ATTEMPTS; attempt += 1) {
-        try {
-          const streamUrl = await resolveRemoteStreamUrl(currentSlot.url, currentSlot.playbackUrl);
-          if (cancelled) return;
-          if (streamUrl || shouldEmbedRemotePage(currentSlot.url)) {
-            setResolvedUrl(streamUrl);
-            setLoading(false);
-            return;
-          }
-        } catch {
-          // The live provider may rotate a stream URL while the player is opening.
-        }
-
-        if (attempt < STREAM_RESOLVE_ATTEMPTS) await waitForRetry(attempt);
-      }
-
-      if (!cancelled) {
-        setLoading(false);
-        setStreamError('Stream se nepodařilo načíst. Zkus ho obnovit.');
-      }
-    };
-
-    void resolveStream();
+    if (currentSlot.playbackUrl) {
+      setResolvedUrl(currentSlot.playbackUrl);
+      setLoading(false);
+    } else if (shouldEmbedRemotePage(currentSlot.url)) {
+      setLoading(false);
+    } else {
+      setLoading(false);
+      setStreamError('Stream nemá připravený přehrávací odkaz.');
+    }
 
     return () => {
       cancelled = true;
