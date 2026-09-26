@@ -30,9 +30,6 @@ const normalizeSlot = (value: unknown): VideoSlot | null => {
     name: slot.name,
     url: slot.url,
     sourceType: 'remote',
-    ...(typeof slot.playbackUrl === 'string' && /^https?:\/\//i.test(slot.playbackUrl)
-      ? { playbackUrl: slot.playbackUrl }
-      : {}),
   };
 };
 
@@ -56,7 +53,6 @@ export const createAppSession = (input: {
           name: slot.name,
           url: slot.url,
           sourceType: 'remote' as const,
-          ...(slot.playbackUrl ? { playbackUrl: slot.playbackUrl } : {}),
         };
   }),
   audioSettings: Array.from(

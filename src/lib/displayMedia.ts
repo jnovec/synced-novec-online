@@ -31,7 +31,11 @@ export const createDisplaySlot = (track: DisplayTrackDescriptor): VideoSlot => (
 });
 
 export const serializePersistentSlots = (slots: (VideoSlot | null)[]): (VideoSlot | null)[] =>
-  slots.map((slot) => (isDisplaySlot(slot) ? null : slot));
+  slots.map((slot) => {
+    if (!slot || isDisplaySlot(slot)) return null;
+    const { playbackUrl: _playbackUrl, ...stableSlot } = slot;
+    return stableSlot;
+  });
 
 export const stopMediaStream = (stream: StoppableMediaStream | null | undefined) => {
   stream?.getTracks().forEach((track) => track.stop());
