@@ -85,7 +85,16 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
         })
       );
 
-      if (!cancelled) setSlotsHook(checkedSlots);
+      if (!cancelled) {
+        setSlotsHook((currentSlots) =>
+          currentSlots.map((currentSlot, index) => {
+            const savedSlot = savedSlots[index];
+            const checkedSlot = checkedSlots[index];
+            if (!savedSlot || checkedSlot || !sameRemoteSlot(currentSlot, savedSlot)) return currentSlot;
+            return null;
+          })
+        );
+      }
     };
 
     void checkSavedStreams();
@@ -447,6 +456,16 @@ const normalizeSlots = (value: unknown): (VideoSlot | null)[] => {
 
   return Array.from({ length: GRID_SLOT_COUNT }, (_, index) => normalizeVideoSlot(value[index]));
 };
+
+const sameRemoteSlot = (left: VideoSlot | null, right: VideoSlot | null): boolean =>
+  Boolean(
+    left &&
+      right &&
+      left.sourceType !== 'display' &&
+      right.sourceType !== 'display' &&
+      left.url === right.url &&
+      left.playbackUrl === right.playbackUrl
+  );
 
 interface GridSizeMapInterface {
   rows: string;
