@@ -88,12 +88,25 @@ export const Sidebar = () => {
 
   useEffect(() => {
     if (!selectedVideo?.url) return;
-    const selectedItem = Array.from(document.querySelectorAll<HTMLElement>('[data-channel-url]')).find(
-      (element) => element.dataset.channelUrl === selectedVideo.url
-    );
-    // Keep one neighboring stream above the selected item so the current
-    // position remains easy to scan while moving through the preview.
-    selectedItem?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    let cancelled = false;
+    const scrollToSelectedChannel = () => {
+      if (cancelled) return;
+      const selectedItem = Array.from(document.querySelectorAll<HTMLElement>('[data-channel-url]')).find(
+        (element) => element.dataset.channelUrl === selectedVideo.url
+      );
+      if (!selectedItem) return;
+      // Keep one neighboring stream above the selected item so the current
+      // position remains easy to scan while moving through the preview.
+      selectedItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    const frame = window.requestAnimationFrame(scrollToSelectedChannel);
+    const retry = window.setTimeout(scrollToSelectedChannel, 180);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(retry);
+    };
   }, [selectedVideo?.url]);
 
   useEffect(() => {
