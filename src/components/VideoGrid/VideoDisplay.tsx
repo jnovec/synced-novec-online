@@ -50,7 +50,6 @@ interface VideoDisplayProps {
   index: number;
   onOpenFullscreen: (index: number) => void;
   isFullscreenActive: boolean;
-  isAnyFullscreenActive: boolean;
   gridRowStart: string;
   gridRowEnd: string;
   gridColumnStart: string;
@@ -61,7 +60,6 @@ export const VideoDisplay = ({
   index,
   onOpenFullscreen,
   isFullscreenActive,
-  isAnyFullscreenActive,
   gridRowStart,
   gridRowEnd,
   gridColumnStart,
@@ -207,7 +205,7 @@ export const VideoDisplay = ({
   };
 
   useEffect(() => {
-    if (!resolvedUrl || isDisplay || isAnyFullscreenActive) return;
+    if (!resolvedUrl || isDisplay) return;
 
     lastPlaybackProgressRef.current = Date.now();
     const watchdog = window.setInterval(() => {
@@ -215,7 +213,7 @@ export const VideoDisplay = ({
     }, PLAYBACK_WATCH_INTERVAL_MS);
 
     return () => window.clearInterval(watchdog);
-  }, [isAnyFullscreenActive, isDisplay, resolvedUrl]);
+  }, [isDisplay, resolvedUrl]);
 
   const handleClick = () => {
     if (slot) {
@@ -556,7 +554,7 @@ export const VideoDisplay = ({
                 width="100%"
                 height="100%"
                 url={resolvedUrl}
-                playing={!isAnyFullscreenActive}
+                playing={!isFullscreenActive}
                 muted={isFullscreenActive || audio.muted}
                 volume={audio.volume}
                 config={{
