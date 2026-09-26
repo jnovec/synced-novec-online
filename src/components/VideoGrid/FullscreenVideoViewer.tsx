@@ -169,13 +169,10 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
     setResolvedUrl(null);
     setStreamError(null);
 
-    if (currentSlot.playbackUrl) {
-      setResolvedUrl(currentSlot.playbackUrl);
-      setLoading(false);
-    } else if (shouldEmbedRemotePage(currentSlot.url)) {
+    if (shouldEmbedRemotePage(currentSlot.url)) {
       setLoading(false);
     } else {
-      void resolveRemoteStreamUrl(currentSlot.url).then((streamUrl) => {
+      void resolveRemoteStreamUrl(currentSlot.url, currentSlot.playbackUrl).then((streamUrl) => {
         if (cancelled) return;
         if (streamUrl) {
           setResolvedUrl(streamUrl);
