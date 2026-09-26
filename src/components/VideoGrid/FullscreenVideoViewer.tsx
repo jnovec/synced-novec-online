@@ -44,6 +44,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
   const [currentIndex, setCurrentIndex] = useState<number | null>(initialIndex);
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mediaReady, setMediaReady] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const mediaRootRef = useRef<HTMLDivElement>(null);
@@ -89,6 +90,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
 
   useEffect(() => {
     playbackFailuresRef.current = 0;
+    setMediaReady(false);
   }, [currentSlot?.playbackUrl, currentSlot?.url]);
 
   useEffect(() => {
@@ -167,6 +169,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
     }
 
     setLoading(true);
+    setMediaReady(false);
     setResolvedUrl(null);
     setStreamError(null);
 
@@ -268,8 +271,16 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
                     },
                   },
                 }}
+                style={{ opacity: mediaReady ? 1 : 0 }}
+                onReady={() => setMediaReady(true)}
                 onError={handlePlayerError}
               />
+              {!mediaReady && (
+                <Flex position="absolute" inset={0} direction="column" alignItems="center" justifyContent="center" gap="3" color="gray.300">
+                  <Spinner size="lg" />
+                  <Text>Spouštím {currentSlot?.name}…</Text>
+                </Flex>
+              )}
             </Box>
           ) : currentSlot && shouldEmbedRemotePage(currentSlot.url) ? (
             <Box
