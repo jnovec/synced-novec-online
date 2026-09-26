@@ -95,6 +95,9 @@ export const Sidebar = () => {
         (element) => element.dataset.channelUrl === selectedVideo.url
       );
       if (!selectedItem) return;
+      const accordionItem = selectedItem.closest<HTMLElement>('[data-index]');
+      const expandButton = accordionItem?.querySelector<HTMLButtonElement>('button[aria-expanded="false"]');
+      expandButton?.click();
       // Keep one neighboring stream above the selected item so the current
       // position remains easy to scan while moving through the preview.
       selectedItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
