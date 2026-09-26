@@ -223,26 +223,6 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
         m="0"
         borderRadius="0"
         overflow="hidden"
-        border="2px solid"
-        borderColor="purple.400"
-        boxShadow="0 0 0 1px rgba(168,85,247,.9), 0 0 24px rgba(168,85,247,.95), inset 0 0 30px rgba(34,211,238,.18)"
-        sx={{
-          animation: expansionStarted ? `synced-fullscreen-expand ${FULLSCREEN_EXPAND_MS}ms cubic-bezier(.2,.8,.2,1) both` : 'none',
-          '@keyframes synced-fullscreen-expand': {
-            from: {
-              opacity: 0.72,
-              transform: 'scale(0.72)',
-              borderColor: '#22d3ee',
-              boxShadow: '0 0 0 2px rgba(34,211,238,.95), 0 0 48px rgba(34,211,238,.95), inset 0 0 40px rgba(168,85,247,.38)',
-            },
-            to: {
-              opacity: 1,
-              transform: 'scale(1)',
-              borderColor: '#a855f7',
-              boxShadow: '0 0 0 1px rgba(168,85,247,.9), 0 0 24px rgba(168,85,247,.95), inset 0 0 30px rgba(34,211,238,.18)',
-            },
-          },
-        }}
       >
         <ModalBody
           ref={mediaRootRef}
@@ -290,7 +270,9 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
                 }}
                 style={{
                   opacity: expansionStarted ? 1 : 0,
-                  transition: 'opacity 480ms ease-in-out',
+                  transform: expansionStarted ? 'scale(1)' : 'scale(.72)',
+                  transformOrigin: 'center',
+                  transition: `opacity ${FULLSCREEN_EXPAND_MS}ms ease-out, transform ${FULLSCREEN_EXPAND_MS}ms cubic-bezier(.2,.8,.2,1)`,
                 }}
                 onReady={() => {
                   setExpansionStarted(true);
