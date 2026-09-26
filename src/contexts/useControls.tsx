@@ -14,7 +14,6 @@ import {
   VideoSlot,
 } from '@/lib/displayMedia';
 import { AppSession, createAppSession, normalizeAppSession } from '@/lib/session';
-import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import posthog from 'posthog-js';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -75,35 +74,11 @@ export const ControlsContextProvider = ({ children }: ControlsContextProviderPro
     const savedSlots = normalizeSlots(getLocalStorage(SLOT_STORAGE_KEY));
     setSlotsHook(savedSlots);
 
-    let cancelled = false;
-    const checkSavedStreams = async () => {
-      const checkedSlots = await Promise.all(
-        savedSlots.map(async (slot) => {
-          if (!slot || shouldEmbedRemotePage(slot.url)) return slot;
-          const streamUrl = await resolveRemoteStreamUrl(slot.url, slot.playbackUrl);
-          return streamUrl ? slot : null;
-        })
-      );
-
-      if (!cancelled) {
-        setSlotsHook((currentSlots) =>
-          currentSlots.map((currentSlot, index) => {
-            const savedSlot = savedSlots[index];
-            const checkedSlot = checkedSlots[index];
-            if (!savedSlot || checkedSlot || !sameRemoteSlot(currentSlot, savedSlot)) return currentSlot;
-            return null;
-          })
-        );
-      }
-    };
-
-    void checkSavedStreams();
-
     const savedPreview = normalizeVideoSlot(getLocalStorage(PREVIEW_STORAGE_KEY));
     setSelectedVideoHook(savedPreview);
-    return () => {
-      cancelled = true;
-    };
+    // Streamy se po refreshi ověřují až v jednotlivých VideoDisplay komponentách.
+    // Dočasný výpadek providera nesmí odstranit uložené sloty z gridu.
+    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -456,16 +431,6 @@ const normalizeSlots = (value: unknown): (VideoSlot | null)[] => {
 
   return Array.from({ length: GRID_SLOT_COUNT }, (_, index) => normalizeVideoSlot(value[index]));
 };
-
-const sameRemoteSlot = (left: VideoSlot | null, right: VideoSlot | null): boolean =>
-  Boolean(
-    left &&
-      right &&
-      left.sourceType !== 'display' &&
-      right.sourceType !== 'display' &&
-      left.url === right.url &&
-      left.playbackUrl === right.playbackUrl
-  );
 
 interface GridSizeMapInterface {
   rows: string;
