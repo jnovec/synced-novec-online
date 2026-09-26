@@ -735,6 +735,11 @@ export const Sidebar = () => {
                 if (target.scrollTop + target.clientHeight >= target.scrollHeight - 24 && moreRoomsPage < moreRoomsPageCount - 1) {
                   setMoreRoomsPage((page) => page + 1);
                   target.scrollTop = 0;
+                } else if (target.scrollTop <= 24 && moreRoomsPage > 0) {
+                  setMoreRoomsPage((page) => page - 1);
+                  window.requestAnimationFrame(() => {
+                    target.scrollTop = Math.max(0, target.scrollHeight - target.clientHeight - 24);
+                  });
                 }
               }}
             >
