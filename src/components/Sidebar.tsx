@@ -30,6 +30,7 @@ interface MoreRoomCardProps {
 }
 
 const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSelect }: MoreRoomCardProps) => {
+  const [hovered, setHovered] = useState(false);
   const handleDragStart = (event: DragEvent<HTMLDivElement>) => {
     event.dataTransfer.effectAllowed = 'copy';
     event.dataTransfer.setData('videoUrl', url);
@@ -45,16 +46,20 @@ const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSele
       draggable
       onDragStart={handleDragStart}
       onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       cursor="grab"
       overflow="hidden"
       borderWidth="1px"
       borderColor={selected ? 'purple.300' : 'whiteAlpha.200'}
       borderRadius="md"
       bg="blackAlpha.500"
-      _hover={{ borderColor: 'purple.200', transform: 'translateY(-1px)' }}
+      transform={hovered ? 'scale(1.08)' : 'scale(1)'}
+      zIndex={hovered ? 2 : 0}
+      _hover={{ borderColor: 'purple.200' }}
       transition="all 120ms ease"
     >
-      <Box h="76px" bg="black" position="relative" overflow="hidden">
+      <Box h={hovered ? '104px' : '76px'} bg="black" position="relative" overflow="hidden" transition="height 160ms ease">
         {playbackUrl ? (
           <ReactPlayer
             url={playbackUrl}
@@ -373,6 +378,20 @@ export const Sidebar = () => {
         duration: 4500,
         isClosable: true,
       });
+    }
+  };
+
+  const refreshMoreRooms = async () => {
+    const category = sourceCategories[selectedCategoryIndex]?.[0];
+    if (!category) return;
+    const isChaturbateCategory = category.toLowerCase().startsWith('chaturbate #');
+    const tag = isChaturbateCategory ? category.slice(category.indexOf('#') + 1) : '';
+    const source = isChaturbateCategory ? 'chaturbate.com' : category;
+    try {
+      await loadSource(source, tag);
+      setMoreRoomsPage(0);
+    } catch {
+      // The normal source error message remains visible in the sidebar.
     }
   };
 
@@ -711,6 +730,13 @@ export const Sidebar = () => {
               p="2"
               boxShadow="0 12px 28px rgba(0,0,0,.65)"
               sx={{ resize: 'both' }}
+              onScroll={(event) => {
+                const target = event.currentTarget;
+                if (target.scrollTop + target.clientHeight >= target.scrollHeight - 24 && moreRoomsPage < moreRoomsPageCount - 1) {
+                  setMoreRoomsPage((page) => page + 1);
+                  target.scrollTop = 0;
+                }
+              }}
             >
               <Flex
                 position="sticky"
@@ -723,7 +749,10 @@ export const Sidebar = () => {
                 bg="blackAlpha.800"
               >
                 <Text color="gray.300" fontSize="xs" fontWeight="semibold">More Rooms</Text>
-                <Text color="gray.500" fontSize="10px">Přetáhni do okna</Text>
+                <Flex alignItems="center" gap="1">
+                  <Text color="gray.500" fontSize="10px">Přetáhni do okna</Text>
+                  <IconButton aria-label="Obnovit More Rooms" icon={<RepeatIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => void refreshMoreRooms()} isLoading={isLoadingSource} />
+                </Flex>
               </Flex>
               <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
                 {visibleMoreRooms.map((channel) => (
