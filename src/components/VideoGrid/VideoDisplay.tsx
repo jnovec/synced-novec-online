@@ -110,6 +110,7 @@ export const VideoDisplay = ({
   const [loopSeconds, setLoopSeconds] = useState(30);
   const [loopStart, setLoopStart] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const mediaRootRef = useRef<HTMLDivElement>(null);
   const slotPlayerRef = useRef<ReactPlayer>(null);
   const reverseTimerRef = useRef<number | null>(null);
@@ -144,6 +145,7 @@ export const VideoDisplay = ({
     setLoopEnabled(false);
     setLoopStart(0);
     setVideoDuration(0);
+    setVideoCurrentTime(0);
   }, [slot?.url, slot?.playbackUrl]);
 
   useEffect(() => () => {
@@ -619,9 +621,10 @@ export const VideoDisplay = ({
                   window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: false } }));
                   refreshStalledStream();
                 }}
-                onDuration={setVideoDuration}
+                onDuration={(duration) => setVideoDuration(Number.isFinite(duration) ? duration : 0)}
                 onProgress={(state) => {
                   handlePlayerProgress();
+                  setVideoCurrentTime(Number.isFinite(state.playedSeconds) ? state.playedSeconds : 0);
                   if (!loopEnabled || videoDuration <= 0) return;
                   const end = Math.min(videoDuration, loopStart + loopSeconds);
                   if (state.playedSeconds >= end || state.playedSeconds < loopStart) slotPlayerRef.current?.seekTo(loopStart, 'seconds');
@@ -651,6 +654,7 @@ export const VideoDisplay = ({
                     borderRadius="lg"
                     boxShadow="0 0 0 2px rgba(168,85,247,.45), 0 8px 28px rgba(0,0,0,.9)"
                     p="2"
+                    flexWrap="wrap"
                     onPointerDown={(event) => event.stopPropagation()}
                     onClick={(event) => event.stopPropagation()}
                   >
@@ -666,10 +670,35 @@ export const VideoDisplay = ({
                       return true;
                     })}>Reverse</Button>
                     <Button size="xs" colorScheme={loopEnabled ? 'purple' : 'gray'} onClick={() => { setLoopStart(slotPlayerRef.current?.getCurrentTime() ?? loopStart); setLoopEnabled((enabled) => !enabled); }}>LOOP</Button>
-                    <Input aria-label="Délka fullscreen smyčky" value={loopSeconds} onChange={(event) => setLoopSeconds(Math.max(1, Number(event.target.value) || 1))} type="number" min={1} max={3600} size="xs" w="58px" bg="gray.900" />
+                    <Input aria-label="Délka fullscreen smyčky" value={loopSeconds} onChange={(event) => setLoopSeconds(Math.max(1, Number(event.target.value) || 1))} type="number" min={1} max={3600} size="xs" w="58px" bg="gray.900" color="white" textColor="white" sx={{ WebkitTextFillColor: 'white' }} />
                     <Button size="xs" onClick={() => setLoopStart((start) => Math.max(0, start - 0.5))}>&lt;</Button>
                     <Text color="gray.300" fontSize="10px" minW="42px" textAlign="center">{loopStart.toFixed(1)}s</Text>
                     <Button size="xs" onClick={() => setLoopStart((start) => Math.min(Math.max(0, videoDuration - loopSeconds), start + 0.5))}>&gt;</Button>
+                    {videoDuration > 0 && Number.isFinite(videoDuration) && (
+                      <Flex alignItems="center" gap="1" w="full" minW="220px" px="1">
+                        <Text color="gray.300" fontSize="10px" minW="34px" textAlign="right">
+                          {Math.floor(videoCurrentTime / 60)}:{String(Math.floor(videoCurrentTime % 60)).padStart(2, '0')}
+                        </Text>
+                        <Slider
+                          aria-label="Posun videa"
+                          value={Math.min(videoCurrentTime, videoDuration)}
+                          min={0}
+                          max={videoDuration}
+                          step={0.1}
+                          onChange={(value) => {
+                            setVideoCurrentTime(value);
+                            slotPlayerRef.current?.seekTo(value, 'seconds');
+                          }}
+                          colorScheme="purple"
+                        >
+                          <SliderTrack bg="whiteAlpha.300"><SliderFilledTrack /></SliderTrack>
+                          <SliderThumb />
+                        </Slider>
+                        <Text color="gray.300" fontSize="10px" minW="34px">
+                          {Math.floor(videoDuration / 60)}:{String(Math.floor(videoDuration % 60)).padStart(2, '0')}
+                        </Text>
+                      </Flex>
+                    )}
                   </Flex>
                 </Portal>
               )}
