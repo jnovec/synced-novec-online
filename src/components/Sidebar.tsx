@@ -104,6 +104,7 @@ export const Sidebar = () => {
   const [sidebarMode, setSidebarMode] = useState<'sources' | 'settings'>('sources');
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
   const [isMoreRoomsOpen, setIsMoreRoomsOpen] = useState(false);
+  const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [isMoreRoomsMinimized, setIsMoreRoomsMinimized] = useState(false);
   const moreRoomsRestoreRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -154,6 +155,11 @@ export const Sidebar = () => {
   const moreRoomsItems = sourceCategories[selectedCategoryIndex]?.[1] ?? [];
   const visibleMoreRooms = moreRoomsItems;
   const moreRoomsOnLeft = moreRoomsPosition === 0 || moreRoomsPosition === 3;
+  useEffect(() => {
+    const handleFullscreen = (event: Event) => setIsFullscreenOpen(Boolean((event as CustomEvent<{ active?: boolean }>).detail?.active));
+    window.addEventListener('synced-fullscreen-change', handleFullscreen);
+    return () => window.removeEventListener('synced-fullscreen-change', handleFullscreen);
+  }, []);
   const moreRoomsPositionStyles = [
     { left: '16px', bottom: '16px' },
     { right: '16px', bottom: '16px' },
@@ -798,7 +804,7 @@ export const Sidebar = () => {
                 </Button>
               </Flex>
             </Box>
-            {isMoreRoomsOpen && <>
+            {isMoreRoomsOpen && !isFullscreenOpen && <>
             <IconButton
               ref={moreRoomsRestoreRef}
               aria-label="Vrátit panel More Rooms"
