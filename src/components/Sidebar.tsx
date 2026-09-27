@@ -117,6 +117,7 @@ export const Sidebar = () => {
   const sourceCategories = useMemo(() => Object.entries(channels), [channels]);
   const moreRoomsItems = sourceCategories[selectedCategoryIndex]?.[1] ?? [];
   const visibleMoreRooms = moreRoomsItems;
+  const moreRoomsOnLeft = moreRoomsPosition === 0 || moreRoomsPosition === 3;
   const moreRoomsPositionStyles = [
     { left: '16px', bottom: '16px' },
     { right: '16px', bottom: '16px' },
@@ -761,7 +762,30 @@ export const Sidebar = () => {
                 </Button>
               </Flex>
             </Box>
-            {isMoreRoomsOpen && <Box
+            {isMoreRoomsOpen && <>
+            <IconButton
+              aria-label="Vrátit panel More Rooms"
+              aria-controls="more-rooms-panel"
+              aria-expanded={!isMoreRoomsMinimized}
+              icon={moreRoomsOnLeft ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+              position="fixed"
+              {...(moreRoomsOnLeft ? { left: 0 } : { right: 0 })}
+              {...(moreRoomsPosition < 2 ? { bottom: '16px' } : { top: '16px' })}
+              zIndex={31}
+              w="28px"
+              minW="28px"
+              h="48px"
+              colorScheme="purple"
+              borderRadius={moreRoomsOnLeft ? '0 8px 8px 0' : '8px 0 0 8px'}
+              visibility={isMoreRoomsMinimized ? 'visible' : 'hidden'}
+              opacity={isMoreRoomsMinimized ? 1 : 0}
+              transition="opacity 180ms ease"
+              onClick={() => setIsMoreRoomsMinimized(false)}
+              sx={{ '@media (prefers-reduced-motion: reduce)': { transition: 'none' } }}
+            />
+            <Box
+              id="more-rooms-panel"
+              aria-hidden={isMoreRoomsMinimized}
               position="fixed"
               {...moreRoomsPositionStyles}
               w="340px"
@@ -779,7 +803,13 @@ export const Sidebar = () => {
               bg="#111807"
               p="2"
               boxShadow="0 12px 28px rgba(0,0,0,.65)"
-              sx={{ resize: 'both' }}
+              transform={isMoreRoomsMinimized
+                ? `translateX(${moreRoomsOnLeft ? 'calc(-100% - 48px)' : 'calc(100% + 48px)'})`
+                : 'translateX(0)'}
+              visibility={isMoreRoomsMinimized ? 'hidden' : 'visible'}
+              pointerEvents={isMoreRoomsMinimized ? 'none' : 'auto'}
+              transition={`transform 280ms ease-in-out, visibility 0s ${isMoreRoomsMinimized ? '280ms' : '0s'}`}
+              sx={{ resize: 'both', '@media (prefers-reduced-motion: reduce)': { transition: 'none' } }}
             >
               <Box position="absolute" top="0" left="12px" right="12px" h="8px" cursor="ns-resize" zIndex={5} onPointerDown={(event) => {
                 event.preventDefault();
@@ -804,10 +834,10 @@ export const Sidebar = () => {
                   <Text color="gray.500" fontSize="10px">Přetáhni do okna</Text>
                   <IconButton aria-label="Obnovit More Rooms" icon={<RepeatIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => void refreshMoreRooms()} isLoading={isLoadingSource} />
                   <IconButton aria-label="Přesunout panel More Rooms" icon={<ChevronRightIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => setMoreRoomsPosition((position) => (position + 1) % 4)} />
-                  <IconButton aria-label="Minimalizovat More Rooms" icon={<MinusIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => setIsMoreRoomsMinimized((minimized) => !minimized)} />
+                  <IconButton aria-label="Minimalizovat More Rooms" icon={<MinusIcon />} size="xs" variant="ghost" color="gray.300" onMouseEnter={() => setIsMoreRoomsMinimized(true)} onClick={() => setIsMoreRoomsMinimized(true)} />
                 </Flex>
               </Flex>
-              {!isMoreRoomsMinimized && <>
+              <>
               <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
                 {visibleMoreRooms.map((channel) => (
                   <MoreRoomCard
@@ -830,8 +860,9 @@ export const Sidebar = () => {
                   />
                 </Flex>
               </Flex>
-              </>}
-            </Box>}
+              </>
+            </Box>
+            </>}
             <Box flex="1" minH={0} overflowY="auto" pr="1">
               {sourceCategories[selectedCategoryIndex]?.[1].map((channel) => (
                 <ChannelItem key={channel.url} {...channel} />
