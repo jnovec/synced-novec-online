@@ -23,6 +23,7 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
+  Portal,
   Select,
   Slider,
   SliderFilledTrack,
@@ -42,6 +43,7 @@ const STREAM_RESOLVE_ATTEMPTS = 3;
 const PLAYBACK_STALL_MS = 12_000;
 const PLAYBACK_WATCH_INTERVAL_MS = 4_000;
 const SLOT_AVAILABILITY_EVENT = 'synced:slot-availability';
+const isHlsPlaybackUrl = (url: string) => /\.m3u8(?:$|[?#])/i.test(url);
 
 const waitFor = (milliseconds: number) => new Promise<void>((resolve) => {
   window.setTimeout(resolve, milliseconds);
@@ -102,7 +104,15 @@ export const VideoDisplay = ({
   const [toySensitivity, setToySensitivity] = useState(2.4);
   const [selectedToyIndex, setSelectedToyIndex] = useState<number | null>(null);
   const [isDuplicateHighlighted, setIsDuplicateHighlighted] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(true);
+  const [videoReversing, setVideoReversing] = useState(false);
+  const [loopEnabled, setLoopEnabled] = useState(false);
+  const [loopSeconds, setLoopSeconds] = useState(30);
+  const [loopStart, setLoopStart] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
   const mediaRootRef = useRef<HTMLDivElement>(null);
+  const slotPlayerRef = useRef<ReactPlayer>(null);
+  const reverseTimerRef = useRef<number | null>(null);
   const playbackFailuresRef = useRef(0);
   const previewReadyRef = useRef(false);
   const lastPlaybackProgressRef = useRef(0);
@@ -127,6 +137,18 @@ export const VideoDisplay = ({
   useEffect(() => {
     if (!isDisplay || !displayStream) setToyVibrationEnabled(false);
   }, [displayStream, isDisplay]);
+
+  useEffect(() => {
+    setVideoPlaying(true);
+    setVideoReversing(false);
+    setLoopEnabled(false);
+    setLoopStart(0);
+    setVideoDuration(0);
+  }, [slot?.url, slot?.playbackUrl]);
+
+  useEffect(() => () => {
+    if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (selectedToyIndex !== null && !toyDevices.some((device) => device.index === selectedToyIndex)) setSelectedToyIndex(null);
@@ -562,11 +584,13 @@ export const VideoDisplay = ({
                 <Text fontSize="xs">Načítám…</Text>
               </Flex>
             ) : resolvedUrl ? (
+              <>
               <ReactPlayer
+                ref={slotPlayerRef}
                 width="100%"
                 height="100%"
                 url={resolvedUrl}
-                playing
+                playing={videoPlaying && !videoReversing}
                 muted={audio.muted}
                 volume={audio.volume}
                 config={{
@@ -595,9 +619,46 @@ export const VideoDisplay = ({
                   window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: false } }));
                   refreshStalledStream();
                 }}
-                onProgress={handlePlayerProgress}
+                onDuration={setVideoDuration}
+                onProgress={(state) => {
+                  handlePlayerProgress();
+                  if (!loopEnabled || videoDuration <= 0) return;
+                  const end = Math.min(videoDuration, loopStart + loopSeconds);
+                  if (state.playedSeconds >= end || state.playedSeconds < loopStart) slotPlayerRef.current?.seekTo(loopStart, 'seconds');
+                }}
+                onEnded={() => {
+                  if (loopEnabled) {
+                    slotPlayerRef.current?.seekTo(loopStart, 'seconds');
+                    setVideoPlaying(true);
+                  } else {
+                    setVideoPlaying(false);
+                  }
+                }}
                 style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
               />
+              {isFullscreenActive && !isDisplay && (
+                <Portal>
+                  <Flex position="fixed" top="24px" left="24px" zIndex={2000} alignItems="center" gap="1" bg="#050505" border="2px solid" borderColor="purple.300" borderRadius="lg" boxShadow="0 0 0 2px rgba(168,85,247,.45), 0 8px 28px rgba(0,0,0,.9)" p="2">
+                    <Text color="purple.200" fontSize="xs" fontWeight="bold" mr="1">VIDEO</Text>
+                    <Button size="xs" colorScheme="blue" onClick={() => setVideoPlaying((playing) => !playing)}>{videoPlaying ? 'Pause' : 'Play'}</Button>
+                    <Button size="xs" colorScheme={videoReversing ? 'orange' : 'gray'} onClick={() => setVideoReversing((reversing) => {
+                      if (reversing) {
+                        if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
+                        reverseTimerRef.current = null;
+                        return false;
+                      }
+                      reverseTimerRef.current = window.setInterval(() => slotPlayerRef.current?.seekTo(Math.max(0, (slotPlayerRef.current?.getCurrentTime() ?? 0) - 0.2), 'seconds'), 100);
+                      return true;
+                    })}>Reverse</Button>
+                    <Button size="xs" colorScheme={loopEnabled ? 'purple' : 'gray'} onClick={() => { setLoopStart(slotPlayerRef.current?.getCurrentTime() ?? loopStart); setLoopEnabled((enabled) => !enabled); }}>LOOP</Button>
+                    <Input aria-label="Délka fullscreen smyčky" value={loopSeconds} onChange={(event) => setLoopSeconds(Math.max(1, Number(event.target.value) || 1))} type="number" min={1} max={3600} size="xs" w="58px" bg="gray.900" />
+                    <Button size="xs" onClick={() => setLoopStart((start) => Math.max(0, start - 0.5))}>&lt;</Button>
+                    <Text color="gray.300" fontSize="10px" minW="42px" textAlign="center">{loopStart.toFixed(1)}s</Text>
+                    <Button size="xs" onClick={() => setLoopStart((start) => Math.min(Math.max(0, videoDuration - loopSeconds), start + 0.5))}>&gt;</Button>
+                  </Flex>
+                </Portal>
+              )}
+              </>
             ) : slot && shouldEmbedRemotePage(slot.url) ? (
               <Box
                 as="iframe"
