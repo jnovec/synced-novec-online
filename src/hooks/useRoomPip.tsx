@@ -65,6 +65,15 @@ export function useRoomPip() {
     }
   };
 
+  const close = () => {
+    requestId.current++;
+    windowRef.current?.close();
+    windowRef.current = null;
+    setPip(null);
+    setRoom(null);
+    setStream(null);
+  };
+
   const portal = pip && room ? createPortal(
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: 8 }}>{room.name}</div>
@@ -77,5 +86,5 @@ export function useRoomPip() {
         </>}
       </div>
     </div>, pip.document.body) : null;
-  return { open, portal };
+  return { open, close, portal };
 }

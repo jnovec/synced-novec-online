@@ -900,7 +900,11 @@ export const Sidebar = () => {
                     key={`more-room-${channel.url}`}
                     {...channel}
                     selected={selectedVideo?.url === channel.url}
-                    onSelect={() => void roomPip.open(channel)}
+                    onSelect={() => {
+                      roomPip.close();
+                      setSelectedVideo({ url: channel.url, name: channel.name, ...(channel.playbackUrl ? { playbackUrl: channel.playbackUrl } : {}) });
+                      setIsMoreRoomsMinimized(true);
+                    }}
                   />
                 ))}
               </Box>
