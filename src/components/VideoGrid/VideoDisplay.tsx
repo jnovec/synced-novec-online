@@ -638,7 +638,22 @@ export const VideoDisplay = ({
               />
               {isFullscreenActive && !isDisplay && (
                 <Portal>
-                  <Flex position="fixed" top="24px" left="24px" zIndex={2000} alignItems="center" gap="1" bg="#050505" border="2px solid" borderColor="purple.300" borderRadius="lg" boxShadow="0 0 0 2px rgba(168,85,247,.45), 0 8px 28px rgba(0,0,0,.9)" p="2">
+                  <Flex
+                    position="fixed"
+                    top="24px"
+                    left="24px"
+                    zIndex={2000}
+                    alignItems="center"
+                    gap="1"
+                    bg="#050505"
+                    border="2px solid"
+                    borderColor="purple.300"
+                    borderRadius="lg"
+                    boxShadow="0 0 0 2px rgba(168,85,247,.45), 0 8px 28px rgba(0,0,0,.9)"
+                    p="2"
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
+                  >
                     <Text color="purple.200" fontSize="xs" fontWeight="bold" mr="1">VIDEO</Text>
                     <Button size="xs" colorScheme="blue" onClick={() => setVideoPlaying((playing) => !playing)}>{videoPlaying ? 'Pause' : 'Play'}</Button>
                     <Button size="xs" colorScheme={videoReversing ? 'orange' : 'gray'} onClick={() => setVideoReversing((reversing) => {
