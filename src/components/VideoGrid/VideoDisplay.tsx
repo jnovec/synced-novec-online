@@ -42,6 +42,7 @@ const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 const STREAM_RESOLVE_ATTEMPTS = 3;
 const PLAYBACK_STALL_MS = 12_000;
 const PLAYBACK_WATCH_INTERVAL_MS = 4_000;
+const PLAYBACK_RETRY_COOLDOWN_MS = 15_000;
 const SLOT_AVAILABILITY_EVENT = 'synced:slot-availability';
 const isHlsPlaybackUrl = (url: string) => /\.m3u8(?:$|[?#])/i.test(url);
 
@@ -118,6 +119,7 @@ export const VideoDisplay = ({
   const previewReadyRef = useRef(false);
   const lastPlaybackProgressRef = useRef(0);
   const recoveryPendingRef = useRef(false);
+  const nextRecoveryAtRef = useRef(0);
   const { status: buttplugStatus, devices: toyDevices, vibrateDevice, stopDevice } = useButtplugContext();
   const { status: vibrationStatus, level: vibrationLevel } = useAudioGamepadVibration({
     stream: isDisplay ? displayStream : null,
@@ -219,18 +221,22 @@ export const VideoDisplay = ({
     playbackFailuresRef.current = 0;
     previewReadyRef.current = false;
     recoveryPendingRef.current = false;
+    nextRecoveryAtRef.current = 0;
   }, [slot?.playbackUrl, slot?.url]);
 
   const refreshStalledStream = () => {
-    if (recoveryPendingRef.current || !slot?.url || isDisplay) return;
+    const now = Date.now();
+    if (recoveryPendingRef.current || now < nextRecoveryAtRef.current || !slot?.url || isDisplay) return;
     recoveryPendingRef.current = true;
     playbackFailuresRef.current += 1;
+    nextRecoveryAtRef.current = now + Math.min(60_000, PLAYBACK_RETRY_COOLDOWN_MS * 2 ** Math.min(playbackFailuresRef.current - 1, 2));
     setReloadKey((current) => current + 1);
   };
 
   const handlePlayerProgress = () => {
     lastPlaybackProgressRef.current = Date.now();
     playbackFailuresRef.current = 0;
+    nextRecoveryAtRef.current = 0;
     if (!previewReadyRef.current) {
       previewReadyRef.current = true;
       window.dispatchEvent(new CustomEvent('synced:slot-playing', { detail: { index } }));

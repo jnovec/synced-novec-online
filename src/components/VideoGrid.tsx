@@ -51,7 +51,7 @@ export const VideoGrid = () => {
       if (!playing) {
         setUnavailableSlots((current) => current.includes(index) ? current : [...current, index]);
       }
-    }, 1400);
+    }, 8000);
   };
 
   useEffect(() => {

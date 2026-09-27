@@ -3,13 +3,26 @@ import { isDirectMediaUrl } from './sourceDiscovery';
 
 // Limit discovery requests only; active video playback remains concurrent.
 const MAX_CONCURRENT_RESOLUTIONS = 3;
+const RESOLVED_URL_CACHE_MS = 8_000;
+const FAILED_RESOLUTION_COOLDOWN_MS = 5_000;
 let activeResolutions = 0;
 const resolutionQueue: Array<{
   task: () => Promise<string | null>;
   resolve: (value: string | null) => void;
 }> = [];
 const pendingResolutions = new Map<string, Promise<string | null>>();
+const resolvedUrlCache = new Map<string, { url: string; until: number }>();
+const failedResolutionCooldowns = new Map<string, number>();
 const HLS_PROXY_PATH = '/api/chaturbate-hls.m3u8';
+
+const isChaturbatePage = (rawUrl: string): boolean => {
+  try {
+    const hostname = new URL(rawUrl).hostname.toLowerCase();
+    return hostname === 'chaturbate.com' || hostname.endsWith('.chaturbate.com');
+  } catch {
+    return false;
+  }
+};
 
 const proxyPornhubHls = (rawUrl: string): string | null => {
   try {
@@ -39,8 +52,7 @@ const resolveRemoteStreamUrlInternal = async (pageUrl: string, playbackUrl?: str
   if (playbackUrl && isDirectMediaUrl(playbackUrl)) return proxyPornhubHls(playbackUrl) ?? playbackUrl;
   if (isDirectMediaUrl(pageUrl)) return pageUrl;
 
-  const chaturbateUrl = await resolveChaturbateStreamUrl(pageUrl);
-  if (chaturbateUrl) return chaturbateUrl;
+  if (isChaturbatePage(pageUrl)) return resolveChaturbateStreamUrl(pageUrl);
 
   try {
     const response = await fetch('/api/video-stream', {
@@ -62,6 +74,20 @@ const resolveRemoteStreamUrlInternal = async (pageUrl: string, playbackUrl?: str
 
 export const resolveRemoteStreamUrl = (pageUrl: string, playbackUrl?: string): Promise<string | null> => {
   const key = `${pageUrl}\n${playbackUrl ?? ''}`;
+  const now = Date.now();
+  for (const [cacheKey, value] of resolvedUrlCache) if (value.until <= now) resolvedUrlCache.delete(cacheKey);
+  for (const [cooldownKey, until] of failedResolutionCooldowns) if (until <= now) failedResolutionCooldowns.delete(cooldownKey);
+  const cached = resolvedUrlCache.get(key);
+  if (cached) {
+    if (cached.until > now) return Promise.resolve(cached.url);
+    resolvedUrlCache.delete(key);
+  }
+
+  const failedUntil = failedResolutionCooldowns.get(key);
+  if (failedUntil) {
+    return Promise.resolve(null);
+  }
+
   const pending = pendingResolutions.get(key);
   if (pending) return pending;
 
@@ -71,9 +97,19 @@ export const resolveRemoteStreamUrl = (pageUrl: string, playbackUrl?: string): P
       resolve,
     });
     runNextResolution();
-  }).finally(() => {
-    pendingResolutions.delete(key);
-  });
+  })
+    .then((resolvedUrl) => {
+      if (resolvedUrl) {
+        resolvedUrlCache.set(key, { url: resolvedUrl, until: Date.now() + RESOLVED_URL_CACHE_MS });
+        failedResolutionCooldowns.delete(key);
+      } else {
+        failedResolutionCooldowns.set(key, Date.now() + FAILED_RESOLUTION_COOLDOWN_MS);
+      }
+      return resolvedUrl;
+    })
+    .finally(() => {
+      pendingResolutions.delete(key);
+    });
 
   pendingResolutions.set(key, promise);
   return promise;
