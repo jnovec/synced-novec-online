@@ -7,13 +7,13 @@ const pornhub = new PornHub();
 export const isPornhubUrl = (url: URL) => url.hostname.toLowerCase().replace(/^www\./, '') === 'pornhub.com';
 export const isXvideosUrl = (url: URL) => url.hostname.toLowerCase().replace(/^www\./, '') === 'xvideos.com';
 
-export const discoverPornhub = async (sourceUrl: URL): Promise<DiscoveredChannel[]> => {
+export const discoverPornhub = async (sourceUrl: URL, page = 1): Promise<DiscoveredChannel[]> => {
   const viewKey = sourceUrl.searchParams.get('viewkey');
   if (viewKey) return [channelFromPornhubVideo(await pornhub.video(sourceUrl.toString()), sourceUrl)];
 
   const query = sourceUrl.searchParams.get('search') ?? '';
   if (!query) return [];
-  const result = await pornhub.searchVideo(query);
+  const result = await pornhub.searchVideo(query, { page });
   const entries = Array.isArray(result?.data) ? result.data.slice(0, 12) : [];
   return (await Promise.all(entries.map(async (entry: any) => {
     try {
@@ -29,10 +29,10 @@ export const discoverPornhub = async (sourceUrl: URL): Promise<DiscoveredChannel
   }))).filter(Boolean);
 };
 
-export const discoverXvideos = async (sourceUrl: URL): Promise<DiscoveredChannel[]> => {
+export const discoverXvideos = async (sourceUrl: URL, page = 1): Promise<DiscoveredChannel[]> => {
   const query = sourceUrl.searchParams.get('k') ?? '';
   if (!query) return [];
-  const result = await xvideos.videos.search({ k: query, page: 1 });
+  const result = await xvideos.videos.search({ k: query, page });
   const entries = result.videos.slice(0, 12);
   return (await Promise.all(entries.map(async (entry) => {
     try {

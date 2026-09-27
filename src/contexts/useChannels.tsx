@@ -19,7 +19,7 @@ interface ChannelsContextInterface {
   saveChannelToPlaylist: (channel: SaveableChannel) => string;
   deleteChannel: (deleteChannelCategory: string, deleteChannelUrl: string) => void;
   clearChannels: () => void;
-  loadSource: (sourceUrl: string, tag?: string) => Promise<SourceLoadResult>;
+  loadSource: (sourceUrl: string, tag?: string, page?: number, append?: boolean) => Promise<SourceLoadResult>;
   importPlaylist: (playlistUrl: string) => Promise<number>;
 }
 
@@ -182,7 +182,7 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
     return setChannels({});
   };
 
-  const loadSource = async (sourceUrl: string, tag = ''): Promise<SourceLoadResult> => {
+  const loadSource = async (sourceUrl: string, tag = '', page = 1, append = false): Promise<SourceLoadResult> => {
     if (loadingSourceRef.current) throw new Error('Jiný zdroj se právě načítá.');
     loadingSourceRef.current = true;
     setIsLoadingSource(true);
@@ -193,7 +193,7 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
         method: 'POST',
         cache: 'no-store',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url: sourceUrl, tag }),
+        body: JSON.stringify({ url: sourceUrl, tag, page }),
       });
       const contentType = response.headers.get('content-type') ?? '';
       if (!contentType.includes('application/json')) {
@@ -206,7 +206,8 @@ export const ChannelsContextProvider = ({ children }: ChannelsContextProviderPro
 
       const nextChannels = dedupeByUrl(data.channels);
       setChannelsHook((previous) => {
-        const next = { ...previous, [data.category as string]: nextChannels };
+        const existing = append ? previous[data.category as string] ?? [] : [];
+        const next = { ...previous, [data.category as string]: dedupeByUrl([...existing, ...nextChannels]) };
         setLocalStorage(CHANNELOUT_STORAGE_KEY, next);
         return next;
       });

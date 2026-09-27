@@ -27,6 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const rawUrl = typeof req.body?.url === 'string' ? req.body.url : '';
   const requestedTag = normalizeChaturbateTag(req.body?.tag);
+  const requestedPage = Number.isInteger(req.body?.page) && req.body.page > 0 ? req.body.page : 1;
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   try {
@@ -66,9 +67,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : isYoutubeUrl(sourceUrl)
                   ? await discoverYoutube(sourceUrl)
                 : isPornhubUrl(sourceUrl)
-                  ? { channels: await discoverPornhub(sourceUrl), finalUrl: sourceUrl }
+                  ? { channels: await discoverPornhub(sourceUrl, requestedPage), finalUrl: sourceUrl }
                 : isXvideosUrl(sourceUrl)
-                  ? { channels: await discoverXvideos(sourceUrl), finalUrl: sourceUrl }
+                  ? { channels: await discoverXvideos(sourceUrl, requestedPage), finalUrl: sourceUrl }
                 : await discoverGeneric(sourceUrl);
     const { channels, finalUrl, tags } = discovered;
     if (!channels.length) return res.status(422).json({ error: 'no_videos_found' });

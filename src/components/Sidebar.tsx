@@ -147,6 +147,9 @@ export const Sidebar = () => {
   const [sourceUrl, setSourceUrl] = useState('');
   const [searchSite, setSearchSite] = useState<keyof typeof searchSourceSites>('Pornhub');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchSourceUrl, setSearchSourceUrl] = useState('');
+  const loadingMoreRoomsRef = useRef(false);
   const [chaturbateTag, setChaturbateTag] = useState('18');
   const [chaturbateTags, setChaturbateTags] = useState(defaultChaturbateTags);
   const [isLoadingChaturbateTags, setIsLoadingChaturbateTags] = useState(false);
@@ -488,11 +491,27 @@ export const Sidebar = () => {
     if (!query) return;
     const searchUrl = searchSourceSites[searchSite](query);
     setSourceUrl(searchUrl);
+    setSearchSourceUrl(searchUrl);
+    setSearchPage(1);
     try {
       const result = await loadSource(searchUrl);
       toast({ title: `${result.category}: ${result.count} výsledků`, status: 'success', duration: 3000, isClosable: true });
     } catch (error) {
       toast({ title: 'Vyhledávání se nepodařilo načíst', description: error instanceof Error ? error.message : 'Neznámá chyba', status: 'error', duration: 4500, isClosable: true });
+    }
+  };
+
+  const loadMoreSearchResults = async () => {
+    if (!searchSourceUrl || loadingMoreRoomsRef.current || isLoadingSource) return;
+    loadingMoreRoomsRef.current = true;
+    const nextPage = searchPage + 1;
+    try {
+      await loadSource(searchSourceUrl, '', nextPage, true);
+      setSearchPage(nextPage);
+    } catch {
+      // Keep the already loaded results visible when the next page is unavailable.
+    } finally {
+      loadingMoreRoomsRef.current = false;
     }
   };
 
@@ -924,7 +943,10 @@ export const Sidebar = () => {
                   <IconButton aria-label="Minimalizovat More Rooms" icon={<MinusIcon />} size="xs" variant="ghost" color="gray.300" onMouseEnter={() => setIsMoreRoomsMinimized(true)} onClick={() => setIsMoreRoomsMinimized(true)} />
                 </Flex>
               </Flex>
-              <Box flex="1" minH={0} overflowY="auto" overflowX="hidden" overscrollBehavior="contain" p="2">
+              <Box flex="1" minH={0} overflowY="auto" overflowX="hidden" overscrollBehavior="contain" p="2" onScroll={(event) => {
+                const element = event.currentTarget;
+                if (element.scrollTop + element.clientHeight >= element.scrollHeight - 160) void loadMoreSearchResults();
+              }}>
               <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
                 {visibleMoreRooms.map((channel) => (
                   <MoreRoomCard
@@ -941,6 +963,7 @@ export const Sidebar = () => {
               </Box>
               <Flex alignItems="center" justifyContent="space-between" mt="2" pt="2" borderTopWidth="1px" borderColor="whiteAlpha.200">
                 <Text color="gray.500" fontSize="10px">{moreRoomsItems.length} načtených streamů</Text>
+                {searchSourceUrl && <Text color="gray.500" fontSize="10px">stránka {searchPage}</Text>}
                 <Flex gap="1">
                   <IconButton
                     aria-label="Přesunout panel More Rooms"
