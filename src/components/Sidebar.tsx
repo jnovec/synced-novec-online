@@ -26,6 +26,8 @@ const waitForRetry = (attempt: number) => new Promise<void>((resolve) => {
   window.setTimeout(resolve, 700 * attempt);
 });
 
+const isHlsPlaybackUrl = (url: string) => /\.m3u8(?:$|[?#])/i.test(url);
+
 interface MoreRoomCardProps {
   name: string;
   location: string;
@@ -629,13 +631,15 @@ export const Sidebar = () => {
                     playing
                     muted
                     volume={0}
+                    controls
                     config={{
                       file: {
-                        forceHLS: true,
+                        forceHLS: isHlsPlaybackUrl(resolvedPreviewUrl),
                         attributes: {
                           crossOrigin: 'true',
+                          playsInline: true,
                         },
-                        hlsOptions: {
+                        ...(isHlsPlaybackUrl(resolvedPreviewUrl) ? { hlsOptions: {
                           lowLatencyMode: false,
                           liveSyncDurationCount: 3,
                           liveMaxLatencyDurationCount: 10,
@@ -643,12 +647,12 @@ export const Sidebar = () => {
                           levelLoadingMaxRetry: 4,
                           fragLoadingMaxRetry: 6,
                           fragLoadingRetryDelay: 800,
-                        },
+                        } } : {}),
                       },
                     }}
                     onError={handlePreviewPlayerError}
                     onProgress={handlePreviewProgress}
-                    style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+                    style={{ position: 'absolute', inset: 0 }}
                   />
                   {isPreviewDropActive && (
                     <Flex position="absolute" inset={0} alignItems="center" justifyContent="center" bg="blackAlpha.700" pointerEvents="none">
