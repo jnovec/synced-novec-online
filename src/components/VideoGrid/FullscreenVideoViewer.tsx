@@ -305,7 +305,7 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
                 }}
                 onError={handlePlayerError}
               />
-              {!isHlsPlaybackUrl(resolvedUrl) && (
+              {!isDisplay && (
                 <Flex position="fixed" top="24px" left="24px" zIndex={20} alignItems="center" gap="1" bg="#050505" border="1px solid" borderColor="purple.300" borderRadius="lg" boxShadow="0 0 0 1px rgba(168,85,247,.35), 0 8px 28px rgba(0,0,0,.75)" p="2">
                   <Text color="purple.200" fontSize="xs" fontWeight="bold" mr="1">VIDEO</Text>
                   <Button size="xs" colorScheme="blue" onClick={() => setVideoPlaying((playing) => !playing)}>{videoPlaying ? 'Pause' : 'Play'}</Button>
