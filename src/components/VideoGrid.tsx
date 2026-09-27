@@ -11,18 +11,31 @@ export const VideoGrid = () => {
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
   const [stripVertical, setStripVertical] = useState(false);
   const [snapshots, setSnapshots] = useState<Record<number, string>>({});
+  const [unavailableSlots, setUnavailableSlots] = useState<number[]>([]);
   const stripRef = useRef<HTMLDivElement>(null);
   const effectiveGridSize = gridSizeMap[gridSize] && gridSize <= slots.length ? gridSize : 9;
   const layout = gridSizeMap[effectiveGridSize];
   const visibleSlotCount = effectiveGridSize;
   const loadedSlots = slots
     .map((slot, index) => ({ slot, index }))
-    .filter(({ slot }) => Boolean(slot));
+    .filter(({ slot, index }) => Boolean(slot) && !unavailableSlots.includes(index));
   const channelByUrl = new Map(Object.values(channels).flat().map((channel) => [channel.url, channel]));
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('synced-fullscreen-change', { detail: { active: fullscreenIndex !== null } }));
   }, [fullscreenIndex]);
+
+  useEffect(() => {
+    const handleAvailability = (event: Event) => {
+      const detail = (event as CustomEvent<{ index?: number; available?: boolean }>).detail;
+      if (!Number.isInteger(detail?.index)) return;
+      setUnavailableSlots((current) => detail.available
+        ? current.filter((index) => index !== detail.index)
+        : current.includes(detail.index as number) ? current : [...current, detail.index as number]);
+    };
+    window.addEventListener('synced:slot-availability', handleAvailability);
+    return () => window.removeEventListener('synced:slot-availability', handleAvailability);
+  }, []);
 
   useEffect(() => {
     if (fullscreenIndex === null) return;

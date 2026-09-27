@@ -41,6 +41,7 @@ const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 const STREAM_RESOLVE_ATTEMPTS = 3;
 const PLAYBACK_STALL_MS = 12_000;
 const PLAYBACK_WATCH_INTERVAL_MS = 4_000;
+const SLOT_AVAILABILITY_EVENT = 'synced:slot-availability';
 
 const waitFor = (milliseconds: number) => new Promise<void>((resolve) => {
   window.setTimeout(resolve, milliseconds);
@@ -161,6 +162,7 @@ export const VideoDisplay = ({
           const streamUrl = await resolveRemoteStreamUrl(slot.url, slot.playbackUrl);
           if (cancelled) return;
           if (streamUrl || shouldEmbedRemotePage(slot.url)) {
+            window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: true } }));
             setResolvedUrl(streamUrl);
             setLoading(false);
             recoveryPendingRef.current = false;
@@ -175,6 +177,7 @@ export const VideoDisplay = ({
       }
 
       if (!cancelled) {
+        window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: false } }));
         setLoading(false);
         recoveryPendingRef.current = false;
       }
@@ -581,7 +584,10 @@ export const VideoDisplay = ({
                     },
                   },
                 }}
-                onError={refreshStalledStream}
+                onError={() => {
+                  window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: false } }));
+                  refreshStalledStream();
+                }}
                 onProgress={handlePlayerProgress}
                 style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
               />
