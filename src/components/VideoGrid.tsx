@@ -80,8 +80,7 @@ export const VideoGrid = () => {
           : { left: '50%', bottom: '16px', transform: 'translateX(-50%)' })}
         maxW="min(90vw, 1100px)"
         maxH={stripVertical ? '80vh' : undefined}
-        overflow={stripVertical ? 'auto' : 'hidden'}
-        overscrollBehaviorX="contain"
+        overflow="visible"
         zIndex={1001}
         bg="rgba(18,29,42,.98)"
         borderWidth="2px"
@@ -89,30 +88,34 @@ export const VideoGrid = () => {
         borderRadius="lg"
         p="2"
         boxShadow="0 12px 32px rgba(0,0,0,.65)"
-        ref={stripRef}
-        onWheelCapture={(event) => {
-          if (stripVertical || !stripRef.current) return;
-          event.preventDefault();
-          const distance = Math.abs(event.deltaX) > 0.5 ? event.deltaX : event.deltaY;
-          stripRef.current.scrollLeft += distance;
-        }}
       >
-        <Flex alignItems="center" gap="2" minW={stripVertical ? undefined : 'max-content'} flexDirection={stripVertical ? 'column' : 'row'}>
-        <Text color="gray.200" fontSize="sm" fontWeight="bold" px="1">▥</Text>
+        <Flex alignItems="center" gap="2" flexDirection={stripVertical ? 'column' : 'row'}>
         <Button
           size="xs"
           variant="ghost"
           color="gray.300"
-          position="sticky"
-          left="0"
           zIndex={2}
           flexShrink={0}
-          bg="rgba(18,29,42,.98)"
+          bg="gray.600"
           onClick={() => setStripVertical((vertical) => !vertical)}
           aria-label="Přepnout orientaci panelu"
         >
           {stripVertical ? '↔' : '↕'}
         </Button>
+        <Box
+          ref={stripRef}
+          overflow={stripVertical ? 'auto' : 'hidden'}
+          overscrollBehaviorX="contain"
+          maxW={stripVertical ? undefined : 'calc(90vw - 64px)'}
+          maxH={stripVertical ? 'calc(80vh - 16px)' : undefined}
+          onWheelCapture={(event) => {
+            if (stripVertical || !stripRef.current) return;
+            event.preventDefault();
+            const distance = Math.abs(event.deltaX) > 0.5 ? event.deltaX : event.deltaY;
+            stripRef.current.scrollLeft += distance;
+          }}
+        >
+        <Flex alignItems="center" gap="2" minW={stripVertical ? undefined : 'max-content'} flexDirection={stripVertical ? 'column' : 'row'}>
         {loadedSlots.map(({ slot, index }) => slot && <Button
           key={`slot-switcher-${index}`}
           onClick={() => setFullscreenIndex(index)}
@@ -139,6 +142,8 @@ export const VideoGrid = () => {
             <Text color="gray.300" fontSize="xs">Slot {index + 1}</Text>
           </Flex>
         </Button>)}
+        </Flex>
+        </Box>
         </Flex>
       </Box>}
     </>
