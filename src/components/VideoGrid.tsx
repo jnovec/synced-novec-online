@@ -1,7 +1,7 @@
 import { useControlsContext } from '@/contexts/useControls';
 import { useChannelsContext } from '@/contexts/useChannels';
 import { Box, Button, Flex, Grid, Image, Text } from '@chakra-ui/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 import { VideoDisplay } from './VideoGrid/VideoDisplay';
 
@@ -11,6 +11,7 @@ export const VideoGrid = () => {
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
   const [stripVertical, setStripVertical] = useState(false);
   const [snapshots, setSnapshots] = useState<Record<number, string>>({});
+  const stripRef = useRef<HTMLDivElement>(null);
   const effectiveGridSize = gridSizeMap[gridSize] && gridSize <= slots.length ? gridSize : 9;
   const layout = gridSizeMap[effectiveGridSize];
   const visibleSlotCount = effectiveGridSize;
@@ -87,6 +88,12 @@ export const VideoGrid = () => {
         borderRadius="lg"
         p="2"
         boxShadow="0 12px 32px rgba(0,0,0,.65)"
+        ref={stripRef}
+        onWheel={(event) => {
+          if (stripVertical || !stripRef.current) return;
+          event.preventDefault();
+          stripRef.current.scrollBy({ left: event.deltaY || event.deltaX, behavior: 'smooth' });
+        }}
       >
         <Flex alignItems="center" gap="2" minW={stripVertical ? undefined : 'max-content'} flexDirection={stripVertical ? 'column' : 'row'}>
         <Text color="gray.200" fontSize="sm" fontWeight="bold" px="1">▥</Text>
