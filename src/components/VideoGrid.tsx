@@ -49,36 +49,32 @@ export const VideoGrid = () => {
   };
 
   useEffect(() => {
-    if (fullscreenIndex === null) return;
-    const takeSnapshots = () => {
-      const videos = loadedSlots.map(({ index }) => document.querySelector<HTMLVideoElement>(`[data-synced-slot-index="${index}"] video`)).filter((video): video is HTMLVideoElement => Boolean(video));
-      const next: Record<number, string> = {};
-      loadedSlots.forEach(({ index }) => {
-        const video = document.querySelector<HTMLVideoElement>(`[data-synced-slot-index="${index}"] video`);
-        if (!video) return;
-        if (video.readyState < 2 || !video.videoWidth) return;
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
-          next[index] = canvas.toDataURL('image/jpeg', 0.78);
-        } catch { /* Stream may disallow canvas capture; use source fallback. */ }
-      });
-      if (Object.keys(next).length) setSnapshots((current) => ({ ...current, ...next }));
-    };
-    let elapsed = 0;
-    const timer = window.setInterval(() => {
-      const videos = loadedSlots.map(({ index }) => document.querySelector<HTMLVideoElement>(`[data-synced-slot-index="${index}"] video`)).filter((video): video is HTMLVideoElement => Boolean(video));
-      const allStarted = videos.length > 0 && videos.every((video) => video.readyState >= 2 && video.videoWidth > 0);
-      elapsed += 250;
-      if (allStarted || elapsed >= 6000) {
-        window.clearInterval(timer);
-        takeSnapshots();
+    const timers: number[] = [];
+    const captureFive = (index: number) => {
+      for (let shot = 0; shot < 5; shot += 1) {
+        timers.push(window.setTimeout(() => {
+          const video = document.querySelector<HTMLVideoElement>(`[data-synced-slot-index="${index}"] video`);
+          if (!video || video.readyState < 2 || !video.videoWidth) return;
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
+            setSnapshots((current) => ({ ...current, [index]: canvas.toDataURL('image/jpeg', 0.78) }));
+          } catch { /* Stream may disallow canvas capture. */ }
+        }, shot * 450));
       }
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [fullscreenIndex]);
+    };
+    const handlePlaying = (event: Event) => {
+      const index = (event as CustomEvent<{ index?: number }>).detail?.index;
+      if (Number.isInteger(index)) captureFive(index as number);
+    };
+    window.addEventListener('synced:slot-playing', handlePlaying);
+    return () => {
+      window.removeEventListener('synced:slot-playing', handlePlaying);
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
 
   return (
     <>

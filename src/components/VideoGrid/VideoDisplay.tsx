@@ -104,6 +104,7 @@ export const VideoDisplay = ({
   const [isDuplicateHighlighted, setIsDuplicateHighlighted] = useState(false);
   const mediaRootRef = useRef<HTMLDivElement>(null);
   const playbackFailuresRef = useRef(0);
+  const previewReadyRef = useRef(false);
   const lastPlaybackProgressRef = useRef(0);
   const recoveryPendingRef = useRef(false);
   const { status: buttplugStatus, devices: toyDevices, vibrateDevice, stopDevice } = useButtplugContext();
@@ -192,6 +193,7 @@ export const VideoDisplay = ({
 
   useEffect(() => {
     playbackFailuresRef.current = 0;
+    previewReadyRef.current = false;
     recoveryPendingRef.current = false;
   }, [slot?.playbackUrl, slot?.url]);
 
@@ -205,6 +207,10 @@ export const VideoDisplay = ({
   const handlePlayerProgress = () => {
     lastPlaybackProgressRef.current = Date.now();
     playbackFailuresRef.current = 0;
+    if (!previewReadyRef.current) {
+      previewReadyRef.current = true;
+      window.dispatchEvent(new CustomEvent('synced:slot-playing', { detail: { index } }));
+    }
   };
 
   useEffect(() => {
