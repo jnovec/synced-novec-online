@@ -16,6 +16,7 @@ import { isCamSodaUrl, parseCamSodaListing } from '@/lib/camsoda';
 import { isCam4Url, parseCam4Listing } from '@/lib/cam4';
 import { isMyFreeCamsUrl, parseMyFreeCamsListing } from '@/lib/myfreecams';
 import { isYoutubeUrl, parseYoutubeVideos } from '@/lib/youtubeSource';
+import { discoverPornhub, discoverXvideos, isPornhubUrl, isXvideosUrl } from '@/lib/adultVideo';
 import { extractVideoChannels, isDirectMediaUrl, normalizeSourceUrl, sourceCategoryName } from '@/lib/sourceDiscovery';
 import type { DiscoveredChannel } from '@/lib/sourceDiscovery';
 import { assertPublicRemoteUrl, fetchPublicText } from '@/lib/safeRemoteFetch';
@@ -62,8 +63,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               ? await discoverCam4(sourceUrl)
               : isMyFreeCamsUrl(sourceUrl)
                 ? await discoverMyFreeCams(sourceUrl)
-                : isYoutubeUrl(sourceUrl)
+      : isYoutubeUrl(sourceUrl)
                   ? await discoverYoutube(sourceUrl)
+                : isPornhubUrl(sourceUrl)
+                  ? { channels: await discoverPornhub(sourceUrl), finalUrl: sourceUrl }
+                : isXvideosUrl(sourceUrl)
+                  ? { channels: await discoverXvideos(sourceUrl), finalUrl: sourceUrl }
                 : await discoverGeneric(sourceUrl);
     const { channels, finalUrl, tags } = discovered;
     if (!channels.length) return res.status(422).json({ error: 'no_videos_found' });
