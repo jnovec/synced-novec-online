@@ -1,4 +1,5 @@
 import { parseEdgeStreamResponse } from '@/lib/chaturbateEdge';
+import { fetchEdge } from '@/lib/edgeRequest';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 const EDGE_API_URL = 'https://chaturbate.com/get_edge_hls_url_ajax/';
@@ -10,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   try {
-    const response = await fetch(EDGE_API_URL, {
+    const response = await fetchEdge(EDGE_API_URL, {
       method: 'POST',
       cache: 'no-store',
       headers: {
@@ -23,6 +24,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     if (!response.ok) {
+      const retryAfter = response.headers.get('retry-after');
+      if (retryAfter) res.setHeader('Retry-After', retryAfter);
       return res.status(response.status).json({ error: 'edge_api_failed' });
     }
 

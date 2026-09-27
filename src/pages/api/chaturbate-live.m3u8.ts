@@ -1,4 +1,5 @@
 import { parseEdgeStreamResponse } from '@/lib/chaturbateEdge';
+import { fetchEdge } from '@/lib/edgeRequest';
 import { rewriteHlsPlaylist } from '@/lib/hlsProxy';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
@@ -12,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   try {
-    const edgeResponse = await fetch(EDGE_API_URL, {
+    const edgeResponse = await fetchEdge(EDGE_API_URL, {
       method: 'POST',
       cache: 'no-store',
       headers: {

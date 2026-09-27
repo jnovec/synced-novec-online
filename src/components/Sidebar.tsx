@@ -61,7 +61,7 @@ const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSele
       transition="all 120ms ease"
     >
       <Box h={hovered ? '104px' : '76px'} bg="black" position="relative" overflow="hidden" transition="height 160ms ease">
-        {playbackUrl ? (
+        {hovered && playbackUrl ? (
           <ReactPlayer
             url={playbackUrl}
             playing
