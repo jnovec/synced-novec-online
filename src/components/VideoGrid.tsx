@@ -1,4 +1,5 @@
 import { useControlsContext } from '@/contexts/useControls';
+import { useChannelsContext } from '@/contexts/useChannels';
 import { Box, Button, Flex, Grid, Image, Text } from '@chakra-ui/react';
 import { useEffect, useState } from 'react';
 import ReactPlayer from 'react-player';
@@ -6,14 +7,15 @@ import { VideoDisplay } from './VideoGrid/VideoDisplay';
 
 export const VideoGrid = () => {
   const { slots, gridSize, gridSizeMap } = useControlsContext();
+  const { channels } = useChannelsContext();
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
-  const [bottomAligned, setBottomAligned] = useState(false);
   const effectiveGridSize = gridSizeMap[gridSize] && gridSize <= slots.length ? gridSize : 9;
   const layout = gridSizeMap[effectiveGridSize];
   const visibleSlotCount = effectiveGridSize;
   const loadedSlots = slots
     .map((slot, index) => ({ slot, index }))
     .filter(({ slot }) => Boolean(slot));
+  const channelByUrl = new Map(Object.values(channels).flat().map((channel) => [channel.url, channel]));
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('synced-fullscreen-change', { detail: { active: fullscreenIndex !== null } }));
@@ -48,26 +50,27 @@ export const VideoGrid = () => {
       </Grid>
       {fullscreenIndex !== null && loadedSlots.length > 0 && <Box
         position="fixed"
-        left="16px"
-        {...(bottomAligned ? { bottom: '16px' } : { top: '50%' })}
-        transform={bottomAligned ? undefined : 'translateY(-50%)'}
-        w="270px"
-        maxH="80vh"
-        overflowY="auto"
+        left="50%"
+        bottom="16px"
+        transform="translateX(-50%)"
+        maxW="min(90vw, 1100px)"
+        overflowX="auto"
         zIndex={1001}
         bg="rgba(18,29,42,.98)"
         borderWidth="2px"
         borderColor="whiteAlpha.400"
         borderRadius="lg"
-        p="3"
+        p="2"
         boxShadow="0 12px 32px rgba(0,0,0,.65)"
       >
-        <Text color="gray.200" fontSize="sm" fontWeight="bold" mb="2">Načtená videa</Text>
+        <Flex alignItems="center" gap="2" minW="max-content">
+        <Text color="gray.200" fontSize="sm" fontWeight="bold" px="1">▥</Text>
         {loadedSlots.map(({ slot, index }) => slot && <Button
           key={`slot-switcher-${index}`}
           onClick={() => setFullscreenIndex(index)}
           variant="unstyled"
-          w="full"
+          w="180px"
+          flexShrink={0}
           display="block"
           whiteSpace="normal"
           mb="1"
@@ -82,15 +85,13 @@ export const VideoGrid = () => {
           _hover={{ borderColor: 'red.200', transform: 'scale(1.02)' }}
           transition="transform 120ms ease, border-color 120ms ease"
         >
-          {slot.playbackUrl ? <ReactPlayer url={slot.playbackUrl} playing muted loop playsinline width="100%" height="82px" config={{ file: { forceHLS: true } }} style={{ objectFit: 'cover', pointerEvents: 'none' }} /> : slot.thumbnailUrl ? <Image src={slot.thumbnailUrl} alt="" w="full" h="82px" objectFit="cover" /> : <Box w="full" h="82px" bg="black" />}
+          {(slot.thumbnailUrl || channelByUrl.get(slot.url)?.logo) ? <Image src={slot.thumbnailUrl || channelByUrl.get(slot.url)?.logo} alt="" w="full" h="82px" objectFit="cover" /> : slot.playbackUrl ? <ReactPlayer url={slot.playbackUrl} playing muted loop playsinline width="100%" height="82px" config={{ file: { forceHLS: true } }} style={{ objectFit: 'cover', pointerEvents: 'none' }} /> : <Box w="full" h="82px" bg="black" />}
           <Flex alignItems="center" justifyContent="space-between" px="2" py="1">
             <Text noOfLines={1} color="blue.200" fontSize="sm" fontWeight="bold">{slot.name}</Text>
             <Text color="gray.300" fontSize="xs">Slot {index + 1}</Text>
           </Flex>
         </Button>)}
-        <Button size="xs" variant="ghost" color="gray.300" w="full" mt="1" onClick={() => setBottomAligned((aligned) => !aligned)} aria-label="Zarovnat panel dolů">
-          ⇵&nbsp; {bottomAligned ? 'Zarovnat na střed' : 'Zarovnat dolů'}
-        </Button>
+        </Flex>
       </Box>}
     </>
   );
