@@ -23,6 +23,12 @@ export const VideoGrid = () => {
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('synced-fullscreen-change', { detail: { active: fullscreenIndex !== null } }));
+    if (fullscreenIndex !== null) {
+      window.requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(`[data-synced-strip-slot="${fullscreenIndex}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      });
+    }
   }, [fullscreenIndex]);
 
   useEffect(() => {
@@ -148,6 +154,7 @@ export const VideoGrid = () => {
         <Flex alignItems="center" gap="2" minW={stripVertical ? undefined : 'max-content'} flexDirection={stripVertical ? 'column' : 'row'}>
         {loadedSlots.map(({ slot, index }) => slot && <Button
           key={`slot-switcher-${index}`}
+          data-synced-strip-slot={index}
           onClick={() => openSlotFromStrip(index)}
           variant="unstyled"
           w="180px"
