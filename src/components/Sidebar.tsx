@@ -3,6 +3,7 @@ import { SettingsAccordionItem } from '@/components/Sidebar/Settings/SettingsAcc
 import { useChannelsContext } from '@/contexts/useChannels';
 import { useControlsContext } from '@/contexts/useControls';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useRoomPip } from '@/hooks/useRoomPip';
 import { findFirstEmptyVisibleSlot } from '@/lib/slotSelection';
 import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { AddIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, RepeatIcon } from '@chakra-ui/icons';
@@ -32,6 +33,12 @@ interface MoreRoomCardProps {
 
 const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSelect }: MoreRoomCardProps) => {
   const [hovered, setHovered] = useState(false);
+  const [playPreview, setPlayPreview] = useState(false);
+  useEffect(() => {
+    if (!hovered) { setPlayPreview(false); return; }
+    const timer = window.setTimeout(() => setPlayPreview(true), 250);
+    return () => window.clearTimeout(timer);
+  }, [hovered]);
   const handleDragStart = (event: DragEvent<HTMLDivElement>) => {
     event.dataTransfer.effectAllowed = 'copy';
     event.dataTransfer.setData('videoUrl', url);
@@ -58,10 +65,10 @@ const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSele
       transform={hovered ? 'scale(1.08)' : 'scale(1)'}
       zIndex={hovered ? 2 : 0}
       _hover={{ borderColor: 'purple.200' }}
-      transition="all 120ms ease"
+      transition="transform 120ms ease, border-color 120ms ease"
     >
-      <Box h={hovered ? '104px' : '76px'} bg="black" position="relative" overflow="hidden" transition="height 160ms ease">
-        {hovered && playbackUrl ? (
+      <Box h="90px" bg="black" position="relative" overflow="hidden">
+        {playPreview && playbackUrl ? (
           <ReactPlayer
             url={playbackUrl}
             playing
@@ -88,6 +95,7 @@ const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSele
 
 export const Sidebar = () => {
   const toast = useToast();
+  const roomPip = useRoomPip();
   const { getLocalStorage, setLocalStorage } = useLocalStorage();
   const sidebarPreferencesLoadedRef = useRef(false);
   const { channels, isLoadingSource, sourceError, loadSource, saveChannelToPlaylist } = useChannelsContext();
@@ -886,7 +894,7 @@ export const Sidebar = () => {
                     key={`more-room-${channel.url}`}
                     {...channel}
                     selected={selectedVideo?.url === channel.url}
-                    onSelect={() => setSelectedVideo({ url: channel.url, name: channel.name, ...(channel.playbackUrl ? { playbackUrl: channel.playbackUrl } : {}) })}
+                    onSelect={() => void roomPip.open(channel)}
                   />
                 ))}
               </Box>
@@ -916,6 +924,7 @@ export const Sidebar = () => {
         </Flex>
       )}
 
+      {roomPip.portal}
       {minimized && <Text color="gray.500">URL</Text>}
     </Flex>
   );
