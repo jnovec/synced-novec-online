@@ -42,6 +42,7 @@ const STREAM_RESOLVE_ATTEMPTS = 3;
 const PLAYBACK_STALL_MS = 12_000;
 const PLAYBACK_WATCH_INTERVAL_MS = 4_000;
 const SLOT_AVAILABILITY_EVENT = 'synced:slot-availability';
+const SLOT_REFRESH_EVENT = 'synced:refresh-slot';
 
 const waitFor = (milliseconds: number) => new Promise<void>((resolve) => {
   window.setTimeout(resolve, milliseconds);
@@ -201,6 +202,15 @@ export const VideoDisplay = ({
     playbackFailuresRef.current += 1;
     setReloadKey((current) => current + 1);
   };
+
+  useEffect(() => {
+    const handleRefresh = (event: Event) => {
+      const detail = (event as CustomEvent<{ index?: number }>).detail;
+      if (detail?.index === index) refreshStalledStream();
+    };
+    window.addEventListener(SLOT_REFRESH_EVENT, handleRefresh);
+    return () => window.removeEventListener(SLOT_REFRESH_EVENT, handleRefresh);
+  }, [index, slot?.url, isDisplay]);
 
   const handlePlayerProgress = () => {
     lastPlaybackProgressRef.current = Date.now();
