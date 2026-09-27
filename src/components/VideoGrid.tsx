@@ -23,10 +23,6 @@ export const VideoGrid = () => {
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('synced-fullscreen-change', { detail: { active: fullscreenIndex !== null } }));
-    if (fullscreenIndex !== null) {
-      setUnavailableSlots([]);
-      window.dispatchEvent(new CustomEvent('synced:refresh-slot', { detail: { index: fullscreenIndex } }));
-    }
   }, [fullscreenIndex]);
 
   useEffect(() => {
