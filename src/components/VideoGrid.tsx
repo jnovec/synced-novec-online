@@ -40,7 +40,7 @@ export const VideoGrid = () => {
   const openSlotFromStrip = (index: number) => {
     setFullscreenIndex(index);
     window.setTimeout(() => {
-      const video = document.querySelectorAll<HTMLVideoElement>('[data-synced-video-grid="true"] video')[index];
+      const video = document.querySelector<HTMLVideoElement>(`[data-synced-slot-index="${index}"] video`);
       const playing = Boolean(video && video.readyState >= 2 && video.videoWidth && !video.paused);
       if (!playing) {
         setUnavailableSlots((current) => current.includes(index) ? current : [...current, index]);
@@ -51,9 +51,11 @@ export const VideoGrid = () => {
   useEffect(() => {
     if (fullscreenIndex === null) return;
     const takeSnapshots = () => {
-      const videos = Array.from(document.querySelectorAll<HTMLVideoElement>('[data-synced-video-grid="true"] video'));
+      const videos = loadedSlots.map(({ index }) => document.querySelector<HTMLVideoElement>(`[data-synced-slot-index="${index}"] video`)).filter((video): video is HTMLVideoElement => Boolean(video));
       const next: Record<number, string> = {};
-      videos.forEach((video, index) => {
+      loadedSlots.forEach(({ index }) => {
+        const video = document.querySelector<HTMLVideoElement>(`[data-synced-slot-index="${index}"] video`);
+        if (!video) return;
         if (video.readyState < 2 || !video.videoWidth) return;
         try {
           const canvas = document.createElement('canvas');
@@ -67,7 +69,7 @@ export const VideoGrid = () => {
     };
     let elapsed = 0;
     const timer = window.setInterval(() => {
-      const videos = Array.from(document.querySelectorAll<HTMLVideoElement>('[data-synced-video-grid="true"] video'));
+      const videos = loadedSlots.map(({ index }) => document.querySelector<HTMLVideoElement>(`[data-synced-slot-index="${index}"] video`)).filter((video): video is HTMLVideoElement => Boolean(video));
       const allStarted = videos.length > 0 && videos.every((video) => video.readyState >= 2 && video.videoWidth > 0);
       elapsed += 250;
       if (allStarted || elapsed >= 6000) {

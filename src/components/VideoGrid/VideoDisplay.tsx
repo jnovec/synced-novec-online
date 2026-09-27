@@ -480,6 +480,7 @@ export const VideoDisplay = ({
   return (
     <>
       <GridItem
+        data-synced-slot-index={index}
         w="full"
         h="full"
         minH={0}
