@@ -65,9 +65,8 @@ export const VideoGrid = () => {
       });
       if (Object.keys(next).length) setSnapshots((current) => ({ ...current, ...next }));
     };
-    takeSnapshots();
-    const timer = window.setInterval(takeSnapshots, 2500);
-    return () => window.clearInterval(timer);
+    const timer = window.setTimeout(takeSnapshots, 900);
+    return () => window.clearTimeout(timer);
   }, [fullscreenIndex]);
 
   return (
