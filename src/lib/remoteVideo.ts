@@ -9,6 +9,17 @@ const resolutionQueue: Array<{
   resolve: (value: string | null) => void;
 }> = [];
 const pendingResolutions = new Map<string, Promise<string | null>>();
+const HLS_PROXY_PATH = '/api/chaturbate-hls.m3u8';
+
+const proxyPornhubHls = (rawUrl: string): string | null => {
+  try {
+    const url = new URL(rawUrl);
+    if (!url.hostname.endsWith('.phncdn.com') || !/\.m3u8(?:$|[?#])/i.test(url.href)) return null;
+    return `${HLS_PROXY_PATH}?url=${encodeURIComponent(url.toString())}`;
+  } catch {
+    return null;
+  }
+};
 
 const runNextResolution = () => {
   while (activeResolutions < MAX_CONCURRENT_RESOLUTIONS && resolutionQueue.length) {
@@ -25,7 +36,7 @@ const runNextResolution = () => {
 };
 
 const resolveRemoteStreamUrlInternal = async (pageUrl: string, playbackUrl?: string): Promise<string | null> => {
-  if (playbackUrl && isDirectMediaUrl(playbackUrl)) return playbackUrl;
+  if (playbackUrl && isDirectMediaUrl(playbackUrl)) return proxyPornhubHls(playbackUrl) ?? playbackUrl;
   if (isDirectMediaUrl(pageUrl)) return pageUrl;
 
   const chaturbateUrl = await resolveChaturbateStreamUrl(pageUrl);

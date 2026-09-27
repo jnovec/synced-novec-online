@@ -2,10 +2,11 @@
 export const isAllowedHlsUpstream = (rawUrl: string): boolean => {
   try {
     const url = new URL(rawUrl);
+    const isPornhubCdn = url.hostname.endsWith('.phncdn.com');
     return (
       url.protocol === 'https:' &&
-      url.hostname.endsWith('.live.mmcdn.com') &&
-      url.pathname.startsWith('/v1/edge/streams/')
+      ((url.hostname.endsWith('.live.mmcdn.com') && url.pathname.startsWith('/v1/edge/streams/')) ||
+        (isPornhubCdn && url.pathname.includes('/hls/')))
     );
   } catch {
     return false;
@@ -27,5 +28,4 @@ export const rewriteHlsPlaylist = (playlist: string, upstreamUrl: string, proxyP
     })
     .join('\n');
 };
-
 
