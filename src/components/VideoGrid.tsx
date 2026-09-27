@@ -37,6 +37,17 @@ export const VideoGrid = () => {
     return () => window.removeEventListener('synced:slot-availability', handleAvailability);
   }, []);
 
+  const openSlotFromStrip = (index: number) => {
+    setFullscreenIndex(index);
+    window.setTimeout(() => {
+      const video = document.querySelectorAll<HTMLVideoElement>('[data-synced-video-grid="true"] video')[index];
+      const playing = Boolean(video && video.readyState >= 2 && video.videoWidth && !video.paused);
+      if (!playing) {
+        setUnavailableSlots((current) => current.includes(index) ? current : [...current, index]);
+      }
+    }, 1400);
+  };
+
   useEffect(() => {
     if (fullscreenIndex === null) return;
     const takeSnapshots = () => {
@@ -131,7 +142,7 @@ export const VideoGrid = () => {
         <Flex alignItems="center" gap="2" minW={stripVertical ? undefined : 'max-content'} flexDirection={stripVertical ? 'column' : 'row'}>
         {loadedSlots.map(({ slot, index }) => slot && <Button
           key={`slot-switcher-${index}`}
-          onClick={() => setFullscreenIndex(index)}
+          onClick={() => openSlotFromStrip(index)}
           variant="unstyled"
           w="180px"
           flexShrink={0}
