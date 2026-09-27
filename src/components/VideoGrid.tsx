@@ -81,6 +81,7 @@ export const VideoGrid = () => {
         maxW="min(90vw, 1100px)"
         maxH={stripVertical ? '80vh' : undefined}
         overflow={stripVertical ? 'auto' : 'hidden'}
+        overscrollBehaviorX="contain"
         zIndex={1001}
         bg="rgba(18,29,42,.98)"
         borderWidth="2px"
@@ -89,10 +90,11 @@ export const VideoGrid = () => {
         p="2"
         boxShadow="0 12px 32px rgba(0,0,0,.65)"
         ref={stripRef}
-        onWheel={(event) => {
+        onWheelCapture={(event) => {
           if (stripVertical || !stripRef.current) return;
           event.preventDefault();
-          stripRef.current.scrollBy({ left: event.deltaY || event.deltaX, behavior: 'smooth' });
+          const distance = Math.abs(event.deltaX) > 0.5 ? event.deltaX : event.deltaY;
+          stripRef.current.scrollLeft += distance;
         }}
       >
         <Flex alignItems="center" gap="2" minW={stripVertical ? undefined : 'max-content'} flexDirection={stripVertical ? 'column' : 'row'}>
