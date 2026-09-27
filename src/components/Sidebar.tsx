@@ -1012,6 +1012,19 @@ export const Sidebar = () => {
                   />
                 ))}
               </Box>
+              {searchSourceUrl && (
+                <Flex justifyContent="center" mt="3">
+                  <Button
+                    size="sm"
+                    colorScheme="purple"
+                    onClick={() => void loadMoreSearchResults()}
+                    isLoading={isLoadingSource}
+                    isDisabled={isLoadingSource}
+                  >
+                    Načíst další výsledky
+                  </Button>
+                </Flex>
+              )}
               <Flex alignItems="center" justifyContent="space-between" mt="2" pt="2" borderTopWidth="1px" borderColor="whiteAlpha.200">
                 <Text color="gray.500" fontSize="10px">{moreRoomsItems.length} načtených streamů</Text>
                 {searchSourceUrl && <Text color="gray.500" fontSize="10px">stránka {searchPage}</Text>}
