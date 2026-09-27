@@ -809,6 +809,7 @@ export const Sidebar = () => {
               visibility={isMoreRoomsMinimized ? 'visible' : 'hidden'}
               opacity={isMoreRoomsMinimized ? 1 : 0}
               transition="opacity 180ms ease"
+              onMouseEnter={() => setIsMoreRoomsMinimized(false)}
               onClick={() => setIsMoreRoomsMinimized(false)}
               sx={{
                 '--peek-direction': moreRoomsOnLeft ? '1' : '-1',
@@ -834,7 +835,9 @@ export const Sidebar = () => {
               minH="180px"
               h={`${moreRoomsHeight}px`}
               maxH="calc(100vh - 32px)"
-              overflow="auto"
+              overflow="hidden"
+              display="flex"
+              flexDirection="column"
               overscrollBehavior="contain"
               borderWidth="1px"
               borderColor="purple.300"
@@ -859,14 +862,14 @@ export const Sidebar = () => {
                 resizingMoreRoomsRef.current = { startY: event.clientY, startHeight: moreRoomsHeight, edge: 'bottom' };
               }} />
               <Flex
-                position="sticky"
-                top="-2"
-                zIndex={1}
+                position="relative"
+                flexShrink={0}
+                zIndex={3}
                 alignItems="center"
                 justifyContent="space-between"
                 mb="2"
                 py="1"
-                bg="blackAlpha.800"
+                bg="#111807"
               >
                 <Text color="gray.300" fontSize="xs" fontWeight="semibold">More Rooms</Text>
                 <Flex alignItems="center" gap="1">
@@ -876,7 +879,7 @@ export const Sidebar = () => {
                   <IconButton aria-label="Minimalizovat More Rooms" icon={<MinusIcon />} size="xs" variant="ghost" color="gray.300" onMouseEnter={() => setIsMoreRoomsMinimized(true)} onClick={() => setIsMoreRoomsMinimized(true)} />
                 </Flex>
               </Flex>
-              <>
+              <Box flex="1" minH={0} overflowY="auto" overflowX="hidden" overscrollBehavior="contain" p="2">
               <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
                 {visibleMoreRooms.map((channel) => (
                   <MoreRoomCard
@@ -899,7 +902,7 @@ export const Sidebar = () => {
                   />
                 </Flex>
               </Flex>
-              </>
+              </Box>
             </Box>
             </>}
             <Box flex="1" minH={0} overflowY="auto" pr="1">
