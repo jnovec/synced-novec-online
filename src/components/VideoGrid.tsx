@@ -74,9 +74,9 @@ export const VideoGrid = () => {
       </Grid>
       {fullscreenIndex !== null && loadedSlots.length > 0 && <Box
         position="fixed"
-        left="50%"
-        bottom="16px"
-        transform="translateX(-50%)"
+        {...(stripVertical
+          ? { left: '50%', bottom: '16px', transform: 'translateX(-50%)' }
+          : { left: '16px', top: '50%', transform: 'translateY(-50%)' })}
         maxW="min(90vw, 1100px)"
         maxH={stripVertical ? '80vh' : undefined}
         overflow={stripVertical ? 'auto' : 'hidden'}
