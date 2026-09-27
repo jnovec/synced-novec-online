@@ -11,7 +11,12 @@ import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, 
 import { DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 
-const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com', 'cam4.com', 'myfreecams.com', 'youtube.com'];
+const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com', 'cam4.com', 'myfreecams.com', 'youtube.com', 'pornhub.com', 'xvideos.com', 'youporn.com'];
+const searchSourceSites = {
+  'Pornhub': (query: string) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(query)}`,
+  'xVideos': (query: string) => `https://www.xvideos.com/?k=${encodeURIComponent(query)}`,
+  'YouPorn': (query: string) => `https://www.youporn.com/search/?query=${encodeURIComponent(query)}`,
+};
 const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 const defaultChaturbateTags = ['18', 'young'];
 const STREAM_RESOLVE_ATTEMPTS = 3;
@@ -138,6 +143,8 @@ export const Sidebar = () => {
   const resizingMoreRoomsRef = useRef<{ startY: number; startHeight: number; edge: 'top' | 'bottom' } | null>(null);
   const [moreRoomsPosition, setMoreRoomsPosition] = useState(0);
   const [sourceUrl, setSourceUrl] = useState('');
+  const [searchSite, setSearchSite] = useState<keyof typeof searchSourceSites>('Pornhub');
+  const [searchQuery, setSearchQuery] = useState('');
   const [chaturbateTag, setChaturbateTag] = useState('18');
   const [chaturbateTags, setChaturbateTags] = useState(defaultChaturbateTags);
   const [isLoadingChaturbateTags, setIsLoadingChaturbateTags] = useState(false);
@@ -474,6 +481,19 @@ export const Sidebar = () => {
     }
   };
 
+  const handleSiteSearch = async () => {
+    const query = searchQuery.trim();
+    if (!query) return;
+    const searchUrl = searchSourceSites[searchSite](query);
+    setSourceUrl(searchUrl);
+    try {
+      const result = await loadSource(searchUrl);
+      toast({ title: `${result.category}: ${result.count} výsledků`, status: 'success', duration: 3000, isClosable: true });
+    } catch (error) {
+      toast({ title: 'Vyhledávání se nepodařilo načíst', description: error instanceof Error ? error.message : 'Neznámá chyba', status: 'error', duration: 4500, isClosable: true });
+    }
+  };
+
   const refreshMoreRooms = async () => {
     const category = sourceCategories[selectedCategoryIndex]?.[0];
     if (!category) return;
@@ -724,6 +744,13 @@ export const Sidebar = () => {
                 isDisabled={!sourceUrl.trim()}
                 onClick={() => void handleSourceSubmit()}
               />
+            </Flex>
+            <Flex mt="2" gap="2">
+              <Select size="sm" value={searchSite} onChange={(event) => setSearchSite(event.target.value as keyof typeof searchSourceSites)} bg="black" color="#EEEEEC" borderColor="whiteAlpha.400" aria-label="Vyhledávat na webu">
+                {Object.keys(searchSourceSites).map((site) => <option key={site} value={site}>{site}</option>)}
+              </Select>
+              <Input size="sm" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void handleSiteSearch(); }} placeholder="Hledat video…" color="#EEEEEC" bg="black" borderColor="whiteAlpha.400" aria-label="Hledat video" />
+              <Button size="sm" colorScheme="purple" onClick={() => void handleSiteSearch()} isLoading={isLoadingSource} isDisabled={!searchQuery.trim()}>Hledat</Button>
             </Flex>
             {isChaturbateSource && (
               <>
