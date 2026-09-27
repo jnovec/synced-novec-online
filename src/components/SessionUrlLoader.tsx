@@ -1,5 +1,5 @@
 import { useControlsContext } from '@/contexts/useControls';
-import { getPastesIdFromLocation, normalizeAppSession } from '@/lib/session';
+import { decodeSyncUrl, getPastesIdFromLocation, normalizeAppSession } from '@/lib/session';
 import { useToast } from '@chakra-ui/react';
 import { useEffect } from 'react';
 
@@ -10,6 +10,24 @@ export const SessionUrlLoader = () => {
   const toast = useToast();
 
   useEffect(() => {
+    const sync = new URLSearchParams(window.location.search).get('sync');
+    if (sync) {
+      try {
+        const payload = decodeSyncUrl(sync) as { session?: unknown; channels?: string | null; preferences?: string | null };
+        const reloadedForSync = sessionStorage.getItem('synced-sync-reloaded') === '1';
+        if (payload.channels) localStorage.setItem('video-source-channels-v3', payload.channels);
+        if (payload.preferences) localStorage.setItem('synced-sidebar-preferences', payload.preferences);
+        if (payload.channels && !reloadedForSync) {
+          sessionStorage.setItem('synced-sync-reloaded', '1');
+          window.location.reload();
+          return;
+        }
+        sessionStorage.removeItem('synced-sync-reloaded');
+        if (payload.session) loadSession(payload.session);
+        toast({ title: 'SYNC session načtena z odkazu', status: 'success', duration: 2800, isClosable: true });
+      } catch { toast({ title: 'SYNC URL není platná', status: 'error', duration: 3500, isClosable: true }); }
+      return;
+    }
     const pasteId = getPastesIdFromLocation(window.location);
     if (!pasteId) return;
 

@@ -1,6 +1,7 @@
 import { GamepadNavigation } from '@/components/GamepadNavigation';
 import { Sidebar } from '@/components/Sidebar';
 import { SessionUrlLoader } from '@/components/SessionUrlLoader';
+import { SyncUrlBar } from '@/components/SyncUrlBar';
 import { StreamSlotHealth } from '@/components/StreamSlotHealth';
 import { Box, Flex } from '@chakra-ui/react';
 
@@ -12,6 +13,7 @@ export const AppShell = ({ children }: AppShellProps) => {
   return (
     <>
       <SessionUrlLoader />
+      <SyncUrlBar />
       <GamepadNavigation />
       <StreamSlotHealth />
       <Flex w="100vw" h="100vh" bg="#050505" overflow="hidden">

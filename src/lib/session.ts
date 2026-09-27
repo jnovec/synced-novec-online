@@ -7,6 +7,18 @@ export const SESSION_VERSION = 1;
 export const SESSION_SLOT_COUNT = 18;
 export const DEFAULT_SESSION_SHARE_ORIGIN = 'https://synced.novec.online';
 
+export const encodeSyncUrl = (value: unknown): string => {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let binary = '';
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+};
+
+export const decodeSyncUrl = (value: string): unknown => {
+  const binary = atob(value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4));
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0))));
+};
+
 export interface AppSession {
   version: typeof SESSION_VERSION;
   name: string;
