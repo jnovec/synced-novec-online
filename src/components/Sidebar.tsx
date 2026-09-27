@@ -158,7 +158,15 @@ export const Sidebar = () => {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewReloadKey, setPreviewReloadKey] = useState(0);
+  const [previewPlaying, setPreviewPlaying] = useState(true);
+  const [previewReversing, setPreviewReversing] = useState(false);
+  const [previewLoopEnabled, setPreviewLoopEnabled] = useState(false);
+  const [previewLoopSeconds, setPreviewLoopSeconds] = useState(30);
+  const [previewLoopStart, setPreviewLoopStart] = useState(0);
+  const [previewDuration, setPreviewDuration] = useState(0);
   const [isPreviewDropActive, setIsPreviewDropActive] = useState(false);
+  const previewPlayerRef = useRef<ReactPlayer>(null);
+  const previewReverseTimerRef = useRef<number | null>(null);
   const previewPlaybackFailures = useRef(0);
   const lastPreviewProgress = useRef(0);
   const currentStreamCount = Object.values(channels).reduce((sum, group) => sum + group.length, 0);
@@ -256,7 +264,16 @@ export const Sidebar = () => {
   useEffect(() => {
     previewPlaybackFailures.current = 0;
     lastPreviewProgress.current = Date.now();
+    setPreviewPlaying(true);
+    setPreviewReversing(false);
+    setPreviewLoopEnabled(false);
+    setPreviewLoopStart(0);
+    setPreviewDuration(0);
   }, [selectedVideo?.playbackUrl, selectedVideo?.url]);
+
+  useEffect(() => () => {
+    if (previewReverseTimerRef.current !== null) window.clearInterval(previewReverseTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!selectedVideo?.url) return;
@@ -647,7 +664,8 @@ export const Sidebar = () => {
                     width="100%"
                     height="100%"
                     url={resolvedPreviewUrl}
-                    playing
+                    ref={previewPlayerRef}
+                    playing={previewPlaying && !previewReversing}
                     muted
                     volume={0}
                     controls
@@ -670,9 +688,42 @@ export const Sidebar = () => {
                       },
                     }}
                     onError={handlePreviewPlayerError}
-                    onProgress={handlePreviewProgress}
+                    onDuration={setPreviewDuration}
+                    onProgress={(state) => {
+                      handlePreviewProgress();
+                      if (!previewLoopEnabled || previewDuration <= 0) return;
+                      const end = Math.min(previewDuration, previewLoopStart + previewLoopSeconds);
+                      if (state.playedSeconds >= end || state.playedSeconds < previewLoopStart) previewPlayerRef.current?.seekTo(previewLoopStart, 'seconds');
+                    }}
                     style={{ position: 'absolute', inset: 0 }}
                   />
+                  {!isHlsPlaybackUrl(resolvedPreviewUrl) && (
+                    <Flex position="absolute" left="2" right="2" bottom="2" gap="1" alignItems="center" bg="blackAlpha.800" borderRadius="md" p="1" zIndex={2}>
+                      <Button size="xs" colorScheme="blue" onClick={() => setPreviewPlaying((playing) => !playing)}>{previewPlaying ? 'Pause' : 'Play'}</Button>
+                      <Button size="xs" colorScheme={previewReversing ? 'orange' : 'gray'} onClick={() => {
+                        setPreviewReversing((reversing) => {
+                          if (reversing) {
+                            if (previewReverseTimerRef.current !== null) window.clearInterval(previewReverseTimerRef.current);
+                            previewReverseTimerRef.current = null;
+                            return false;
+                          }
+                          previewReverseTimerRef.current = window.setInterval(() => {
+                            const current = previewPlayerRef.current?.getCurrentTime() ?? 0;
+                            previewPlayerRef.current?.seekTo(Math.max(0, current - 0.2), 'seconds');
+                          }, 100);
+                          return true;
+                        });
+                      }}>Reverse</Button>
+                      <Button size="xs" colorScheme={previewLoopEnabled ? 'purple' : 'gray'} onClick={() => {
+                        setPreviewLoopStart(previewPlayerRef.current?.getCurrentTime() ?? previewLoopStart);
+                        setPreviewLoopEnabled((enabled) => !enabled);
+                      }}>LOOP</Button>
+                      <Input aria-label="Délka smyčky v sekundách" value={previewLoopSeconds} onChange={(event) => setPreviewLoopSeconds(Math.max(1, Number(event.target.value) || 1))} type="number" min={1} max={3600} size="xs" w="58px" bg="blackAlpha.700" />
+                      <Button size="xs" onClick={() => setPreviewLoopStart((start) => Math.max(0, start - 0.5))}>&lt;</Button>
+                      <Text fontSize="10px" color="gray.300" minW="45px" textAlign="center">{previewLoopStart.toFixed(1)}s</Text>
+                      <Button size="xs" onClick={() => setPreviewLoopStart((start) => Math.min(Math.max(0, previewDuration - previewLoopSeconds), start + 0.5))}>&gt;</Button>
+                    </Flex>
+                  )}
                   {isPreviewDropActive && (
                     <Flex position="absolute" inset={0} alignItems="center" justifyContent="center" bg="blackAlpha.700" pointerEvents="none">
                       <Badge colorScheme="cyan" fontSize="sm" px="3" py="2">
