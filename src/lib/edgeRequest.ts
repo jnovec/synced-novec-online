@@ -1,7 +1,25 @@
 // Share short-lived discovery responses between the resolver and HLS master.
-const pending = new Map<string, Promise<Response>>();
-const cached = new Map<string, { until: number; response: Response }>();
+//
+// A Response body is a one-shot stream. Caching Response instances therefore
+// makes a second consumer eventually fail with "Body has already been
+// consumed", even when clone() was used by the caller. Keep an immutable
+// snapshot instead and create a fresh Response for every consumer.
+type EdgeSnapshot = {
+  status: number;
+  headers: [string, string][];
+  body: ArrayBuffer;
+};
+
+const pending = new Map<string, Promise<EdgeSnapshot>>();
+const cached = new Map<string, { until: number; snapshot: EdgeSnapshot }>();
 let retryAt = 0;
+
+function responseFromSnapshot(snapshot: EdgeSnapshot): Response {
+  return new Response(snapshot.body.slice(0), {
+    status: snapshot.status,
+    headers: snapshot.headers,
+  });
+}
 
 export async function fetchEdge(url: string, init: RequestInit): Promise<Response> {
   const now = Date.now();
@@ -11,7 +29,7 @@ export async function fetchEdge(url: string, init: RequestInit): Promise<Respons
   const key = String(init.body);
   for (const [entry, value] of cached) if (value.until <= now) cached.delete(entry);
   const hit = cached.get(key);
-  if (hit) return hit.response.clone();
+  if (hit) return responseFromSnapshot(hit.snapshot);
   let request = pending.get(key);
   if (!request) {
     request = fetch(url, { ...init, signal: AbortSignal.timeout(15000) }).then(async (response) => {
@@ -22,11 +40,15 @@ export async function fetchEdge(url: string, init: RequestInit): Promise<Respons
         const delay = Number.isFinite(seconds) ? seconds * 1000 : Number.isFinite(date) ? date - Date.now() : 30000;
         retryAt = Date.now() + Math.max(1000, delay);
       }
-      const buffered = new Response(await response.arrayBuffer(), { status: response.status, headers: response.headers });
-      if (response.ok) cached.set(key, { until: Date.now() + 10000, response: buffered });
-      return buffered;
+      const snapshot: EdgeSnapshot = {
+        status: response.status,
+        headers: Array.from(response.headers.entries()),
+        body: await response.arrayBuffer(),
+      };
+      if (response.ok) cached.set(key, { until: Date.now() + 10000, snapshot });
+      return snapshot;
     }).finally(() => pending.delete(key));
     pending.set(key, request);
   }
-  return (await request).clone();
+  return responseFromSnapshot(await request);
 }
