@@ -65,8 +65,17 @@ export const VideoGrid = () => {
       });
       if (Object.keys(next).length) setSnapshots((current) => ({ ...current, ...next }));
     };
-    const timer = window.setTimeout(takeSnapshots, 900);
-    return () => window.clearTimeout(timer);
+    let elapsed = 0;
+    const timer = window.setInterval(() => {
+      const videos = Array.from(document.querySelectorAll<HTMLVideoElement>('[data-synced-video-grid="true"] video'));
+      const allStarted = videos.length > 0 && videos.every((video) => video.readyState >= 2 && video.videoWidth > 0);
+      elapsed += 250;
+      if (allStarted || elapsed >= 6000) {
+        window.clearInterval(timer);
+        takeSnapshots();
+      }
+    }, 250);
+    return () => window.clearInterval(timer);
   }, [fullscreenIndex]);
 
   return (
