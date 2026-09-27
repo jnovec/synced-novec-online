@@ -8,6 +8,7 @@ import {
   Button,
   Flex,
   IconButton,
+  Input,
   Modal,
   ModalBody,
   ModalContent,
@@ -34,6 +35,7 @@ const GAMEPAD_RIGHT_BUTTON = 15;
 const GAMEPAD_STICK_DEADZONE = 0.55;
 const GAMEPAD_REPEAT_MS = 260;
 const FULLSCREEN_EXPAND_MS = 480;
+const isHlsPlaybackUrl = (url: string) => /\.m3u8(?:$|[?#])/i.test(url);
 
 export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: FullscreenVideoViewerProps) => {
   const { audioSettings, displayStreams, setSlotMuted, setSlotVolume } = useControlsContext();
@@ -43,7 +45,15 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
   const [expansionStarted, setExpansionStarted] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [videoPlaying, setVideoPlaying] = useState(true);
+  const [videoReversing, setVideoReversing] = useState(false);
+  const [loopEnabled, setLoopEnabled] = useState(false);
+  const [loopSeconds, setLoopSeconds] = useState(30);
+  const [loopStart, setLoopStart] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
   const mediaRootRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<ReactPlayer>(null);
+  const reverseTimerRef = useRef<number | null>(null);
   const gamepadStateRef = useRef({ left: false, right: false });
   const gamepadLastMoveRef = useRef(0);
   const goRef = useRef<(direction: -1 | 1) => void>(() => undefined);
@@ -54,6 +64,18 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
   const isDisplay = isDisplaySlot(currentSlot);
   const currentDisplayStream = currentIndex === null ? null : displayStreams[currentIndex];
   const audio = currentIndex === null ? null : audioSettings[currentIndex];
+
+  useEffect(() => {
+    setVideoPlaying(true);
+    setVideoReversing(false);
+    setLoopEnabled(false);
+    setLoopStart(0);
+    setVideoDuration(0);
+  }, [currentIndex, resolvedUrl]);
+
+  useEffect(() => () => {
+    if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (isOpen) setCurrentIndex(initialIndex);
@@ -244,15 +266,16 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
           ) : resolvedUrl ? (
             <Box position="absolute" inset={0} bg="black" backgroundImage={currentSlot?.thumbnailUrl ? `url(${currentSlot.thumbnailUrl})` : undefined} backgroundSize="cover" backgroundPosition="center">
               <ReactPlayer
+                ref={playerRef}
                 width="100%"
                 height="100%"
                 url={resolvedUrl}
-                playing
+                playing={videoPlaying && !videoReversing}
                 muted={audio?.muted ?? true}
                 volume={audio?.volume ?? 0.5}
                 config={{
                   file: {
-                    forceHLS: true,
+                    forceHLS: isHlsPlaybackUrl(resolvedUrl),
                     attributes: { crossOrigin: 'true' },
                     hlsOptions: {
                       lowLatencyMode: false,
@@ -274,8 +297,34 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
                 onReady={() => {
                   setExpansionStarted(true);
                 }}
+                onDuration={setVideoDuration}
+                onProgress={(state) => {
+                  if (!loopEnabled || videoDuration <= 0) return;
+                  const end = Math.min(videoDuration, loopStart + loopSeconds);
+                  if (state.playedSeconds >= end || state.playedSeconds < loopStart) playerRef.current?.seekTo(loopStart, 'seconds');
+                }}
                 onError={handlePlayerError}
               />
+              {!isHlsPlaybackUrl(resolvedUrl) && (
+                <Flex position="fixed" top="24px" left="24px" zIndex={20} alignItems="center" gap="1" bg="#050505" border="1px solid" borderColor="purple.300" borderRadius="lg" boxShadow="0 0 0 1px rgba(168,85,247,.35), 0 8px 28px rgba(0,0,0,.75)" p="2">
+                  <Text color="purple.200" fontSize="xs" fontWeight="bold" mr="1">VIDEO</Text>
+                  <Button size="xs" colorScheme="blue" onClick={() => setVideoPlaying((playing) => !playing)}>{videoPlaying ? 'Pause' : 'Play'}</Button>
+                  <Button size="xs" colorScheme={videoReversing ? 'orange' : 'gray'} onClick={() => setVideoReversing((reversing) => {
+                    if (reversing) {
+                      if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
+                      reverseTimerRef.current = null;
+                      return false;
+                    }
+                    reverseTimerRef.current = window.setInterval(() => playerRef.current?.seekTo(Math.max(0, (playerRef.current?.getCurrentTime() ?? 0) - 0.2), 'seconds'), 100);
+                    return true;
+                  })}>Reverse</Button>
+                  <Button size="xs" colorScheme={loopEnabled ? 'purple' : 'gray'} onClick={() => { setLoopStart(playerRef.current?.getCurrentTime() ?? loopStart); setLoopEnabled((enabled) => !enabled); }}>LOOP</Button>
+                  <Input aria-label="Délka fullscreen smyčky" value={loopSeconds} onChange={(event) => setLoopSeconds(Math.max(1, Number(event.target.value) || 1))} type="number" min={1} max={3600} size="xs" w="58px" bg="gray.900" />
+                  <Button size="xs" onClick={() => setLoopStart((start) => Math.max(0, start - 0.5))}>&lt;</Button>
+                  <Text color="gray.300" fontSize="10px" minW="42px" textAlign="center">{loopStart.toFixed(1)}s</Text>
+                  <Button size="xs" onClick={() => setLoopStart((start) => Math.min(Math.max(0, videoDuration - loopSeconds), start + 0.5))}>&gt;</Button>
+                </Flex>
+              )}
             </Box>
           ) : currentSlot && shouldEmbedRemotePage(currentSlot.url) ? (
             <Box
