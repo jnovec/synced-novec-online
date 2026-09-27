@@ -13,6 +13,7 @@ import {
   ModalBody,
   ModalContent,
   ModalOverlay,
+  Portal,
   Slider,
   SliderFilledTrack,
   SliderThumb,
@@ -303,27 +304,37 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
                   const end = Math.min(videoDuration, loopStart + loopSeconds);
                   if (state.playedSeconds >= end || state.playedSeconds < loopStart) playerRef.current?.seekTo(loopStart, 'seconds');
                 }}
+                onEnded={() => {
+                  if (loopEnabled) {
+                    playerRef.current?.seekTo(loopStart, 'seconds');
+                    setVideoPlaying(true);
+                  } else {
+                    setVideoPlaying(false);
+                  }
+                }}
                 onError={handlePlayerError}
               />
               {!isDisplay && (
-                <Flex position="absolute" top="24px" left="24px" zIndex={100} alignItems="center" gap="1" bg="#050505" border="2px solid" borderColor="purple.300" borderRadius="lg" boxShadow="0 0 0 1px rgba(168,85,247,.5), 0 8px 28px rgba(0,0,0,.85)" p="2" pointerEvents="auto">
-                  <Text color="purple.200" fontSize="xs" fontWeight="bold" mr="1">VIDEO</Text>
-                  <Button size="xs" colorScheme="blue" onClick={() => setVideoPlaying((playing) => !playing)}>{videoPlaying ? 'Pause' : 'Play'}</Button>
-                  <Button size="xs" colorScheme={videoReversing ? 'orange' : 'gray'} onClick={() => setVideoReversing((reversing) => {
-                    if (reversing) {
-                      if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
-                      reverseTimerRef.current = null;
-                      return false;
-                    }
-                    reverseTimerRef.current = window.setInterval(() => playerRef.current?.seekTo(Math.max(0, (playerRef.current?.getCurrentTime() ?? 0) - 0.2), 'seconds'), 100);
-                    return true;
-                  })}>Reverse</Button>
-                  <Button size="xs" colorScheme={loopEnabled ? 'purple' : 'gray'} onClick={() => { setLoopStart(playerRef.current?.getCurrentTime() ?? loopStart); setLoopEnabled((enabled) => !enabled); }}>LOOP</Button>
-                  <Input aria-label="Délka fullscreen smyčky" value={loopSeconds} onChange={(event) => setLoopSeconds(Math.max(1, Number(event.target.value) || 1))} type="number" min={1} max={3600} size="xs" w="58px" bg="gray.900" />
-                  <Button size="xs" onClick={() => setLoopStart((start) => Math.max(0, start - 0.5))}>&lt;</Button>
-                  <Text color="gray.300" fontSize="10px" minW="42px" textAlign="center">{loopStart.toFixed(1)}s</Text>
-                  <Button size="xs" onClick={() => setLoopStart((start) => Math.min(Math.max(0, videoDuration - loopSeconds), start + 0.5))}>&gt;</Button>
-                </Flex>
+                <Portal>
+                  <Flex position="fixed" top="24px" left="24px" zIndex={2000} alignItems="center" gap="1" bg="#050505" border="2px solid" borderColor="purple.300" borderRadius="lg" boxShadow="0 0 0 2px rgba(168,85,247,.45), 0 8px 28px rgba(0,0,0,.9)" p="2" pointerEvents="auto">
+                    <Text color="purple.200" fontSize="xs" fontWeight="bold" mr="1">VIDEO</Text>
+                    <Button size="xs" colorScheme="blue" onClick={() => setVideoPlaying((playing) => !playing)}>{videoPlaying ? 'Pause' : 'Play'}</Button>
+                    <Button size="xs" colorScheme={videoReversing ? 'orange' : 'gray'} onClick={() => setVideoReversing((reversing) => {
+                      if (reversing) {
+                        if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
+                        reverseTimerRef.current = null;
+                        return false;
+                      }
+                      reverseTimerRef.current = window.setInterval(() => playerRef.current?.seekTo(Math.max(0, (playerRef.current?.getCurrentTime() ?? 0) - 0.2), 'seconds'), 100);
+                      return true;
+                    })}>Reverse</Button>
+                    <Button size="xs" colorScheme={loopEnabled ? 'purple' : 'gray'} onClick={() => { setLoopStart(playerRef.current?.getCurrentTime() ?? loopStart); setLoopEnabled((enabled) => !enabled); }}>LOOP</Button>
+                    <Input aria-label="Délka fullscreen smyčky" value={loopSeconds} onChange={(event) => setLoopSeconds(Math.max(1, Number(event.target.value) || 1))} type="number" min={1} max={3600} size="xs" w="58px" bg="gray.900" />
+                    <Button size="xs" onClick={() => setLoopStart((start) => Math.max(0, start - 0.5))}>&lt;</Button>
+                    <Text color="gray.300" fontSize="10px" minW="42px" textAlign="center">{loopStart.toFixed(1)}s</Text>
+                    <Button size="xs" onClick={() => setLoopStart((start) => Math.min(Math.max(0, videoDuration - loopSeconds), start + 0.5))}>&gt;</Button>
+                  </Flex>
+                </Portal>
               )}
             </Box>
           ) : currentSlot && shouldEmbedRemotePage(currentSlot.url) ? (
