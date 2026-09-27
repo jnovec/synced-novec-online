@@ -97,6 +97,34 @@ export const Sidebar = () => {
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
   const [isMoreRoomsOpen, setIsMoreRoomsOpen] = useState(false);
   const [isMoreRoomsMinimized, setIsMoreRoomsMinimized] = useState(false);
+  const moreRoomsRestoreRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!isMoreRoomsOpen) return;
+    let frame = 0;
+    let pointerY = window.innerHeight / 2;
+    const updatePosition = () => {
+      frame = 0;
+      // Update only the tab, not the stream players, on pointer movement.
+      const top = Math.max(0, Math.min(window.innerHeight - 48, pointerY - 24));
+      if (moreRoomsRestoreRef.current) moreRoomsRestoreRef.current.style.top = `${top}px`;
+    };
+    const schedulePosition = () => {
+      if (!frame) frame = window.requestAnimationFrame(updatePosition);
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      pointerY = event.clientY;
+      schedulePosition();
+    };
+    updatePosition();
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('resize', schedulePosition);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('resize', schedulePosition);
+    };
+  }, [isMoreRoomsOpen]);
   const [moreRoomsHeight, setMoreRoomsHeight] = useState(520);
   const resizingMoreRoomsRef = useRef<{ startY: number; startHeight: number; edge: 'top' | 'bottom' } | null>(null);
   const [moreRoomsPosition, setMoreRoomsPosition] = useState(0);
@@ -764,13 +792,14 @@ export const Sidebar = () => {
             </Box>
             {isMoreRoomsOpen && <>
             <IconButton
+              ref={moreRoomsRestoreRef}
               aria-label="Vrátit panel More Rooms"
               aria-controls="more-rooms-panel"
               aria-expanded={!isMoreRoomsMinimized}
               icon={moreRoomsOnLeft ? <ChevronRightIcon /> : <ChevronLeftIcon />}
               position="fixed"
               {...(moreRoomsOnLeft ? { left: 0 } : { right: 0 })}
-              {...(moreRoomsPosition < 2 ? { bottom: '16px' } : { top: '16px' })}
+              top="calc(50vh - 24px)"
               zIndex={31}
               w="28px"
               minW="28px"
@@ -781,7 +810,17 @@ export const Sidebar = () => {
               opacity={isMoreRoomsMinimized ? 1 : 0}
               transition="opacity 180ms ease"
               onClick={() => setIsMoreRoomsMinimized(false)}
-              sx={{ '@media (prefers-reduced-motion: reduce)': { transition: 'none' } }}
+              sx={{
+                '--peek-direction': moreRoomsOnLeft ? '1' : '-1',
+                animation: isMoreRoomsMinimized ? 'moreRoomsPeek 7s ease-in-out infinite' : 'none',
+                '@keyframes moreRoomsPeek': {
+                  '0%, 82%, 100%': { transform: 'translateX(0)' },
+                  '86%, 94%': { transform: 'translateX(calc(var(--peek-direction) * 7px)) rotate(-5deg)' },
+                  '90%, 97%': { transform: 'translateX(calc(var(--peek-direction) * 3px)) rotate(5deg)' },
+                },
+                '&:hover, &:focus-visible': { animation: 'none' },
+                '@media (prefers-reduced-motion: reduce)': { transition: 'none', animation: 'none' },
+              }}
             />
             <Box
               id="more-rooms-panel"
