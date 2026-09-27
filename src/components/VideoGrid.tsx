@@ -1,11 +1,13 @@
 import { useControlsContext } from '@/contexts/useControls';
 import { Box, Button, Flex, Grid, Image, Text } from '@chakra-ui/react';
 import { useEffect, useState } from 'react';
+import ReactPlayer from 'react-player';
 import { VideoDisplay } from './VideoGrid/VideoDisplay';
 
 export const VideoGrid = () => {
   const { slots, gridSize, gridSizeMap } = useControlsContext();
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
+  const [bottomAligned, setBottomAligned] = useState(false);
   const effectiveGridSize = gridSizeMap[gridSize] && gridSize <= slots.length ? gridSize : 9;
   const layout = gridSizeMap[effectiveGridSize];
   const visibleSlotCount = effectiveGridSize;
@@ -47,8 +49,8 @@ export const VideoGrid = () => {
       {fullscreenIndex !== null && loadedSlots.length > 0 && <Box
         position="fixed"
         left="16px"
-        top="50%"
-        transform="translateY(-50%)"
+        {...(bottomAligned ? { bottom: '16px' } : { top: '50%' })}
+        transform={bottomAligned ? undefined : 'translateY(-50%)'}
         w="270px"
         maxH="80vh"
         overflowY="auto"
@@ -80,12 +82,15 @@ export const VideoGrid = () => {
           _hover={{ borderColor: 'red.200', transform: 'scale(1.02)' }}
           transition="transform 120ms ease, border-color 120ms ease"
         >
-          {slot.thumbnailUrl ? <Image src={slot.thumbnailUrl} alt="" w="full" h="82px" objectFit="cover" /> : <Box w="full" h="82px" bg="black" />}
+          {slot.playbackUrl ? <ReactPlayer url={slot.playbackUrl} playing muted loop playsinline width="100%" height="82px" config={{ file: { forceHLS: true } }} style={{ objectFit: 'cover', pointerEvents: 'none' }} /> : slot.thumbnailUrl ? <Image src={slot.thumbnailUrl} alt="" w="full" h="82px" objectFit="cover" /> : <Box w="full" h="82px" bg="black" />}
           <Flex alignItems="center" justifyContent="space-between" px="2" py="1">
             <Text noOfLines={1} color="blue.200" fontSize="sm" fontWeight="bold">{slot.name}</Text>
             <Text color="gray.300" fontSize="xs">Slot {index + 1}</Text>
           </Flex>
         </Button>)}
+        <Button size="xs" variant="ghost" color="gray.300" w="full" mt="1" onClick={() => setBottomAligned((aligned) => !aligned)} aria-label="Zarovnat panel dolů">
+          ⇵&nbsp; {bottomAligned ? 'Zarovnat na střed' : 'Zarovnat dolů'}
+        </Button>
       </Box>}
     </>
   );
