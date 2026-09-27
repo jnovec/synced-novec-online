@@ -99,7 +99,20 @@ export const VideoGrid = () => {
       >
         <Flex alignItems="center" gap="2" minW={stripVertical ? undefined : 'max-content'} flexDirection={stripVertical ? 'column' : 'row'}>
         <Text color="gray.200" fontSize="sm" fontWeight="bold" px="1">▥</Text>
-        <Button size="xs" variant="ghost" color="gray.300" onClick={() => setStripVertical((vertical) => !vertical)} aria-label="Přepnout orientaci panelu">{stripVertical ? '↔' : '↕'}</Button>
+        <Button
+          size="xs"
+          variant="ghost"
+          color="gray.300"
+          position="sticky"
+          left="0"
+          zIndex={2}
+          flexShrink={0}
+          bg="rgba(18,29,42,.98)"
+          onClick={() => setStripVertical((vertical) => !vertical)}
+          aria-label="Přepnout orientaci panelu"
+        >
+          {stripVertical ? '↔' : '↕'}
+        </Button>
         {loadedSlots.map(({ slot, index }) => slot && <Button
           key={`slot-switcher-${index}`}
           onClick={() => setFullscreenIndex(index)}
