@@ -1,8 +1,9 @@
 import { useControlsContext } from '@/contexts/useControls';
 import { useChannelsContext } from '@/contexts/useChannels';
-import { Box, Button, Flex, Grid, Image, Text } from '@chakra-ui/react';
+import { Box, Button, Flex, Grid, Image, Link, Text } from '@chakra-ui/react';
 import { useEffect, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
+import { usePagePip } from '@/hooks/usePagePip';
 import { VideoDisplay } from './VideoGrid/VideoDisplay';
 
 export const VideoGrid = () => {
@@ -13,6 +14,7 @@ export const VideoGrid = () => {
   const [snapshots, setSnapshots] = useState<Record<number, string>>({});
   const [unavailableSlots, setUnavailableSlots] = useState<number[]>([]);
   const stripRef = useRef<HTMLDivElement>(null);
+  const pagePip = usePagePip();
   const effectiveGridSize = gridSizeMap[gridSize] && gridSize <= slots.length ? gridSize : 9;
   const layout = gridSizeMap[effectiveGridSize];
   const visibleSlotCount = effectiveGridSize;
@@ -175,7 +177,24 @@ export const VideoGrid = () => {
         >
           {snapshots[index] ? <Image src={snapshots[index]} alt="" w="full" h="82px" objectFit="cover" /> : (slot.thumbnailUrl || channelByUrl.get(slot.url)?.logo) ? <Image src={slot.thumbnailUrl || channelByUrl.get(slot.url)?.logo} alt="" w="full" h="82px" objectFit="cover" /> : slot.playbackUrl ? <ReactPlayer url={slot.playbackUrl} playing muted loop playsinline width="100%" height="82px" config={{ file: { forceHLS: true } }} style={{ objectFit: 'cover', pointerEvents: 'none' }} /> : <Box w="full" h="82px" bg="black" />}
           <Flex alignItems="center" justifyContent="space-between" px="2" py="1">
-            <Text noOfLines={1} color="blue.200" fontSize="sm" fontWeight="bold">{slot.name}</Text>
+            <Link
+              as="button"
+              type="button"
+              noOfLines={1}
+              color="blue.200"
+              fontSize="sm"
+              fontWeight="bold"
+              textAlign="left"
+              minW={0}
+              overflow="hidden"
+              textOverflow="ellipsis"
+              whiteSpace="nowrap"
+              onClick={(event) => {
+                event.stopPropagation();
+                void pagePip.open(slot.url, slot.name);
+              }}
+              _hover={{ color: 'blue.100', textDecoration: 'underline' }}
+            >{slot.name}</Link>
             <Text color="gray.300" fontSize="xs">Slot {index + 1}</Text>
           </Flex>
         </Button>)}
