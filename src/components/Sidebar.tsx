@@ -114,6 +114,7 @@ export const Sidebar = () => {
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [isMoreRoomsMinimized, setIsMoreRoomsMinimized] = useState(false);
   const moreRoomsRestoreRef = useRef<HTMLButtonElement>(null);
+  const moreRoomsScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!isMoreRoomsOpen) return;
     let frame = 0;
@@ -540,6 +541,8 @@ export const Sidebar = () => {
     const source = isChaturbateCategory ? 'chaturbate.com' : category;
     try {
       await loadSource(source, tag);
+      moreRoomsScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      if (searchSourceUrl) setSearchPage(1);
     } catch {
       // The normal source error message remains visible in the sidebar.
     }
@@ -994,7 +997,7 @@ export const Sidebar = () => {
                   <IconButton aria-label="Minimalizovat More Rooms" icon={<MinusIcon />} size="xs" variant="ghost" color="gray.300" onMouseEnter={() => setIsMoreRoomsMinimized(true)} onClick={() => setIsMoreRoomsMinimized(true)} />
                 </Flex>
               </Flex>
-              <Box flex="1" minH={0} overflowY="auto" overflowX="hidden" overscrollBehavior="contain" p="2" onScroll={(event) => {
+              <Box ref={moreRoomsScrollRef} flex="1" minH={0} overflowY="auto" overflowX="hidden" overscrollBehavior="contain" p="2" onScroll={(event) => {
                 const element = event.currentTarget;
                 if (element.scrollTop + element.clientHeight >= element.scrollHeight - 160) void loadMoreSearchResults();
               }}>
