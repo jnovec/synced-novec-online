@@ -111,6 +111,7 @@ export const VideoDisplay = ({
   const [isDuplicateHighlighted, setIsDuplicateHighlighted] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(true);
   const [videoReversing, setVideoReversing] = useState(false);
+  const videoReversingRef = useRef(false);
   const [loopEnabled, setLoopEnabled] = useState(false);
   const [loopSeconds, setLoopSeconds] = useState(30);
   const [loopStart, setLoopStart] = useState(0);
@@ -154,6 +155,10 @@ export const VideoDisplay = ({
     setVideoDuration(0);
     setVideoCurrentTime(0);
   }, [slot?.url, slot?.playbackUrl]);
+
+  useEffect(() => {
+    videoReversingRef.current = videoReversing;
+  }, [videoReversing]);
 
   useEffect(() => () => {
     if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
@@ -674,7 +679,7 @@ export const VideoDisplay = ({
                   setIsBuffering(false);
                   setStreamStatus('live');
                   handlePlayerProgress();
-                  if (!videoReversing) {
+                  if (!videoReversingRef.current) {
                     setVideoCurrentTime(Number.isFinite(state.playedSeconds) ? state.playedSeconds : 0);
                   }
                   if (!loopEnabled || videoDuration <= 0) return;
