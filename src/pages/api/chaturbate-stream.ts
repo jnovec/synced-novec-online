@@ -30,13 +30,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const parsed = parseEdgeStreamResponse(await response.json());
-    const streamUrl = parsed.streamUrl
+    const streamUrl = parsed.streamUrl ?? null;
+    const proxyStreamUrl = parsed.streamUrl
       ? `/api/chaturbate-live.m3u8?username=${encodeURIComponent(username)}`
       : null;
     return res.status(200).json({
       username,
       room_status: parsed.roomStatus,
       streamUrl,
+      proxyStreamUrl,
     });
   } catch (error) {
     console.error('Chaturbate stream resolve failed', error);

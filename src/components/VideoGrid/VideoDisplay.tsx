@@ -40,7 +40,7 @@ import { DisplayMediaPlayer } from './DisplayMediaPlayer';
 const DUPLICATE_SOURCE_EVENT = 'synced:duplicate-source-highlight';
 const SLOT_DRAG_TYPE = 'application/x-synced-slot-index';
 const STREAM_RESOLVE_ATTEMPTS = 3;
-const PLAYBACK_STALL_MS = 12_000;
+const PLAYBACK_STALL_MS = 20_000;
 const PLAYBACK_WATCH_INTERVAL_MS = 4_000;
 const PLAYBACK_RETRY_COOLDOWN_MS = 15_000;
 const SLOT_AVAILABILITY_EVENT = 'synced:slot-availability';
@@ -651,8 +651,8 @@ export const VideoDisplay = ({
                       startLevel: -1,
                       capLevelToPlayerSize: !isFullscreenActive,
                       abrEwmaDefaultEstimate: isFullscreenActive ? 8_000_000 : (isBusyGrid ? 1_250_000 : 2_000_000),
-                      maxBufferLength: isFullscreenActive ? 30 : (isBusyGrid ? 8 : 14),
-                      maxMaxBufferLength: isFullscreenActive ? 90 : (isBusyGrid ? 16 : 30),
+                      maxBufferLength: isFullscreenActive ? 30 : (isBusyGrid ? 16 : 20),
+                      maxMaxBufferLength: isFullscreenActive ? 90 : (isBusyGrid ? 32 : 45),
                       backBufferLength: 10,
                       liveBackBufferLength: 10,
                       manifestLoadingMaxRetry: 4,
