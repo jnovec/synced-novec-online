@@ -728,13 +728,22 @@ export const VideoDisplay = ({
                     <Button size="xs" colorScheme="blue" onClick={() => setVideoPlaying((playing) => !playing)}>{videoPlaying ? 'Pause' : 'Play'}</Button>
                     <Button size="xs" colorScheme={videoReversing ? 'orange' : 'gray'} onClick={() => setVideoReversing((reversing) => {
                       if (reversing) {
+                        videoReversingRef.current = false;
                         if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
                         reverseTimerRef.current = null;
                         reversePositionRef.current = null;
                         if (!videoPlaying) setVideoPlaying(true);
                         return false;
                       }
-                      reversePositionRef.current = slotPlayerRef.current?.getCurrentTime() ?? videoCurrentTime;
+                      videoReversingRef.current = true;
+                      setVideoPlaying(false);
+                      const playerTime = slotPlayerRef.current?.getCurrentTime();
+                      const startTime = Number.isFinite(playerTime) && (playerTime ?? 0) > 0
+                        ? Number(playerTime)
+                        : videoCurrentTime;
+                      reversePositionRef.current = Math.max(0, startTime);
+                      setVideoCurrentTime(reversePositionRef.current);
+                      if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
                       reverseTimerRef.current = window.setInterval(() => {
                         const current = reversePositionRef.current ?? videoCurrentTime;
                         const next = Math.max(0, current - (1 / 30));
@@ -744,6 +753,8 @@ export const VideoDisplay = ({
                         if (next <= 0) {
                           if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
                           reverseTimerRef.current = null;
+                          videoReversingRef.current = false;
+                          setVideoReversing(false);
                           setVideoPlaying(false);
                         }
                       }, 33);
@@ -767,6 +778,7 @@ export const VideoDisplay = ({
                           step={0.1}
                           onChange={(value) => {
                             setVideoCurrentTime(value);
+                            if (videoReversingRef.current) reversePositionRef.current = value;
                             slotPlayerRef.current?.seekTo(value, 'seconds');
                           }}
                           colorScheme="purple"
