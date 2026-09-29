@@ -23,6 +23,14 @@ const containsFlex = (node) => {
   return found;
 };
 
+test('More Rooms floating panel stays out of the preview after reload', () => {
+  assert.doesNotMatch(
+    sidebar.text,
+    /setIsMoreRoomsOpen\(preferences\.isMoreRoomsOpen\)/,
+    'opening More Rooms is a temporary overlay choice and should not restore over the preview on reload',
+  );
+});
+
 test('Sidebar does not nest a block Flex inside Chakra Text paragraph', () => {
   const textWithFlex = [];
   const visit = (node) => {

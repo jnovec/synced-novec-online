@@ -193,7 +193,6 @@ export const Sidebar = () => {
       const preferences = saved as Record<string, unknown>;
       if (preferences.sidebarMode === 'sources' || preferences.sidebarMode === 'settings') setSidebarMode(preferences.sidebarMode);
       if (typeof preferences.selectedCategoryIndex === 'number') setSelectedCategoryIndex(Math.max(0, preferences.selectedCategoryIndex));
-      if (typeof preferences.isMoreRoomsOpen === 'boolean') setIsMoreRoomsOpen(preferences.isMoreRoomsOpen);
       if (typeof preferences.isMoreRoomsMinimized === 'boolean') setIsMoreRoomsMinimized(preferences.isMoreRoomsMinimized);
       if (typeof preferences.moreRoomsHeight === 'number') setMoreRoomsHeight(Math.max(180, preferences.moreRoomsHeight));
       if (typeof preferences.moreRoomsPosition === 'number') setMoreRoomsPosition(((preferences.moreRoomsPosition % 4) + 4) % 4);
@@ -208,14 +207,13 @@ export const Sidebar = () => {
     setLocalStorage('synced-sidebar-preferences', {
       sidebarMode,
       selectedCategoryIndex,
-      isMoreRoomsOpen,
       isMoreRoomsMinimized,
       moreRoomsHeight,
       moreRoomsPosition,
       chaturbateTag,
       sourceUrl,
     });
-  }, [chaturbateTag, isMoreRoomsMinimized, isMoreRoomsOpen, moreRoomsHeight, moreRoomsPosition, selectedCategoryIndex, setLocalStorage, sidebarMode, sourceUrl]);
+  }, [chaturbateTag, isMoreRoomsMinimized, moreRoomsHeight, moreRoomsPosition, selectedCategoryIndex, setLocalStorage, sidebarMode, sourceUrl]);
 
   const isChaturbateSource = /(?:^|\/\/)(?:www\.)?chaturbate\.com(?:\/|$)/i.test(sourceUrl.trim());
   const movePreview = (direction: -1 | 1) => {
@@ -715,7 +713,11 @@ export const Sidebar = () => {
                         <option key={category} value={categoryIndex}>{category} ({sourceChannels.length})</option>
                       ))}
                     </Select>
-                    <Button size="sm" colorScheme="purple" onClick={() => setIsMoreRoomsOpen((open) => !open)}>
+                    <Button size="sm" colorScheme="purple" onClick={() => {
+                      const nextOpen = !isMoreRoomsOpen;
+                      setIsMoreRoomsOpen(nextOpen);
+                      if (nextOpen) setIsMoreRoomsMinimized(false);
+                    }}>
                       {isMoreRoomsOpen ? 'Skrýt' : 'More Rooms'}
                     </Button>
                   </Flex>
