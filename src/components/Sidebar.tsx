@@ -960,6 +960,7 @@ export const Sidebar = () => {
               visibility={isMoreRoomsMinimized ? 'hidden' : 'visible'}
               pointerEvents={isMoreRoomsMinimized ? 'none' : 'auto'}
               transition={`transform 280ms ease-in-out, visibility 0s ${isMoreRoomsMinimized ? '280ms' : '0s'}`}
+              onMouseLeave={() => setIsMoreRoomsMinimized(true)}
               sx={{ resize: 'both', '@media (prefers-reduced-motion: reduce)': { transition: 'none' } }}
             >
               <Box position="absolute" top="0" left="12px" right="12px" h="8px" cursor="ns-resize" zIndex={5} onPointerDown={(event) => {
