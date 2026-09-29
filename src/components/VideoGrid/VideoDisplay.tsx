@@ -654,7 +654,7 @@ export const VideoDisplay = ({
               </Flex>
             ) : resolvedUrl ? (
               <>
-              {lastFrameUrl && (loading || isBuffering || streamStatus === 'loading') && (
+              {lastFrameUrl && (loading || streamStatus === 'error') && (
                 <Image
                   src={lastFrameUrl}
                   alt="Poslední dostupný snímek streamu"
@@ -662,7 +662,8 @@ export const VideoDisplay = ({
                   inset={0}
                   w="full"
                   h="full"
-                  objectFit="cover"
+                  objectFit="contain"
+                  bg="black"
                   zIndex={1}
                   pointerEvents="none"
                 />
