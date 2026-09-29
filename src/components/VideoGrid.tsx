@@ -80,9 +80,20 @@ export const VideoGrid = () => {
       const index = (event as CustomEvent<{ index?: number }>).detail?.index;
       if (Number.isInteger(index)) captureFive(index as number);
     };
+    const handleLayoutReload = () => {
+      setSnapshots({});
+      setUnavailableSlots([]);
+      const indexes = Array.from(document.querySelectorAll<HTMLElement>('[data-synced-slot-index]'))
+        .map((element) => Number(element.dataset.syncedSlotIndex))
+        .filter((index) => Number.isInteger(index));
+      window.setTimeout(() => indexes.forEach(captureFive), 900);
+      window.setTimeout(() => indexes.forEach(captureFive), 1800);
+    };
     window.addEventListener('synced:slot-playing', handlePlaying);
+    window.addEventListener(SLOT_LAYOUT_RELOAD_EVENT, handleLayoutReload);
     return () => {
       window.removeEventListener('synced:slot-playing', handlePlaying);
+      window.removeEventListener(SLOT_LAYOUT_RELOAD_EVENT, handleLayoutReload);
       timers.forEach((timer) => window.clearTimeout(timer));
     };
   }, []);
