@@ -180,6 +180,9 @@ export const VideoGrid = () => {
           overflow={stripVertical ? 'auto' : 'hidden'}
           sx={{
             scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            scrollbarColor: 'transparent transparent',
+            WebkitOverflowScrolling: 'touch',
             '&::-webkit-scrollbar': { display: 'none' },
           }}
           overscrollBehaviorX="contain"
