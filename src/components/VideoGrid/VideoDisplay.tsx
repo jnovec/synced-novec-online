@@ -93,6 +93,7 @@ export const VideoDisplay = ({
   const audio = audioSettings[index];
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
   const [streamStatus, setStreamStatus] = useState<'loading' | 'live' | 'error'>('loading');
   const [reloadKey, setReloadKey] = useState(0);
   const slotKeyRef = useRef<string | null>(null);
@@ -207,6 +208,7 @@ export const VideoDisplay = ({
     }
 
     setLoading(true);
+    setIsBuffering(true);
     setStreamStatus('loading');
     const slotKey = `${slot.url}\n${slot.playbackUrl ?? ''}`;
     if (slotKeyRef.current !== slotKey) {
@@ -223,6 +225,7 @@ export const VideoDisplay = ({
             window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: true } }));
             setResolvedUrl(streamUrl);
             setLoading(false);
+            setIsBuffering(false);
             setStreamStatus('loading');
             recoveryPendingRef.current = false;
             lastPlaybackProgressRef.current = Date.now();
@@ -238,6 +241,7 @@ export const VideoDisplay = ({
       if (!cancelled) {
         window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: false } }));
         setLoading(false);
+        setIsBuffering(false);
         setStreamStatus('error');
         recoveryPendingRef.current = false;
       }
@@ -659,13 +663,15 @@ export const VideoDisplay = ({
                   },
                 }}
                 onError={() => {
+                  setIsBuffering(true);
                   setStreamStatus('error');
                   window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: false } }));
                   refreshStalledStream();
                 }}
-                onBuffer={() => setStreamStatus('loading')}
+                onBuffer={() => { setIsBuffering(true); setStreamStatus('loading'); }}
                 onDuration={(duration) => setVideoDuration(Number.isFinite(duration) ? duration : 0)}
                 onProgress={(state) => {
+                  setIsBuffering(false);
                   setStreamStatus('live');
                   handlePlayerProgress();
                   if (!videoReversing) {
@@ -685,6 +691,14 @@ export const VideoDisplay = ({
                 }}
                 style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
               />
+              {isBuffering && (
+                <Flex position="absolute" inset={0} alignItems="center" justifyContent="center" pointerEvents="none" bg="blackAlpha.300">
+                  <Flex alignItems="center" gap="2" px="3" py="2" borderRadius="md" bg="blackAlpha.700" color="gray.200">
+                    <Spinner size="sm" />
+                    <Text fontSize="xs">Bufferuji…</Text>
+                  </Flex>
+                </Flex>
+              )}
               {isFullscreenActive && !isDisplay && (
                 <Portal>
                   <Flex
