@@ -37,6 +37,18 @@ export const VideoGrid = () => {
   }, [fullscreenIndex]);
 
   useEffect(() => {
+    const revealActiveSlot = () => {
+      if (fullscreenIndex === null) return;
+      window.requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(`[data-synced-strip-slot="${fullscreenIndex}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      });
+    };
+    window.addEventListener(SLOT_LAYOUT_RELOAD_EVENT, revealActiveSlot);
+    return () => window.removeEventListener(SLOT_LAYOUT_RELOAD_EVENT, revealActiveSlot);
+  }, [fullscreenIndex]);
+
+  useEffect(() => {
     const handleAvailability = (event: Event) => {
       const detail = (event as CustomEvent<{ index?: number; available?: boolean }>).detail;
       if (!Number.isInteger(detail?.index)) return;
