@@ -687,7 +687,17 @@ export const VideoDisplay = ({
                         reverseTimerRef.current = null;
                         return false;
                       }
-                      reverseTimerRef.current = window.setInterval(() => slotPlayerRef.current?.seekTo(Math.max(0, (slotPlayerRef.current?.getCurrentTime() ?? 0) - 0.2), 'seconds'), 100);
+                      reverseTimerRef.current = window.setInterval(() => {
+                        const current = slotPlayerRef.current?.getCurrentTime() ?? videoCurrentTime;
+                        const next = Math.max(0, current - 0.2);
+                        slotPlayerRef.current?.seekTo(next, 'seconds');
+                        setVideoCurrentTime(next);
+                        if (next <= 0) {
+                          if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
+                          reverseTimerRef.current = null;
+                          setVideoReversing(false);
+                        }
+                      }, 100);
                       return true;
                     })}>Reverse</Button>
                     <Button size="xs" colorScheme={loopEnabled ? 'purple' : 'gray'} onClick={() => { setLoopStart(slotPlayerRef.current?.getCurrentTime() ?? loopStart); setLoopEnabled((enabled) => !enabled); }}>LOOP</Button>
