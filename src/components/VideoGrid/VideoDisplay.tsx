@@ -670,11 +670,13 @@ export const VideoDisplay = ({
                 }}
                 onError={() => {
                   setIsBuffering(true);
-                  setStreamStatus('error');
-                  window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: false } }));
-                  refreshStalledStream();
+                  setStreamStatus('loading');
+                  // HLS can report a transient media error while it is still
+                  // able to recover. Keep the current player mounted and let
+                  // the stall watchdog decide whether a fresh source is needed.
                 }}
                 onBuffer={() => { setIsBuffering(true); setStreamStatus('loading'); }}
+                onBufferEnd={() => { setIsBuffering(false); setStreamStatus('live'); }}
                 onDuration={(duration) => setVideoDuration(Number.isFinite(duration) ? duration : 0)}
                 onProgress={(state) => {
                   setIsBuffering(false);
