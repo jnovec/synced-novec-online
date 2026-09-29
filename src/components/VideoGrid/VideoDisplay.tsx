@@ -649,6 +649,8 @@ export const VideoDisplay = ({
                       abrEwmaDefaultEstimate: isFullscreenActive ? 8_000_000 : (isBusyGrid ? 1_250_000 : 2_000_000),
                       maxBufferLength: isFullscreenActive ? 30 : (isBusyGrid ? 8 : 14),
                       maxMaxBufferLength: isFullscreenActive ? 90 : (isBusyGrid ? 16 : 30),
+                      backBufferLength: 10,
+                      liveBackBufferLength: 10,
                       manifestLoadingMaxRetry: 4,
                       levelLoadingMaxRetry: 4,
                       fragLoadingMaxRetry: 6,
@@ -710,7 +712,7 @@ export const VideoDisplay = ({
                       }
                       reverseTimerRef.current = window.setInterval(() => {
                         const current = slotPlayerRef.current?.getCurrentTime() ?? videoCurrentTime;
-                        const next = Math.max(0, current - 0.2);
+                        const next = Math.max(0, current - (1 / 30));
                         slotPlayerRef.current?.seekTo(next, 'seconds');
                         setVideoCurrentTime(next);
                         if (next <= 0) {
