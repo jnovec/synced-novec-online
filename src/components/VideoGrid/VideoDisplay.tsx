@@ -710,6 +710,7 @@ export const VideoDisplay = ({
                       if (reversing) {
                         if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
                         reverseTimerRef.current = null;
+                        if (!videoPlaying) setVideoPlaying(true);
                         return false;
                       }
                       reverseTimerRef.current = window.setInterval(() => {
@@ -720,9 +721,9 @@ export const VideoDisplay = ({
                         if (next <= 0) {
                           if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
                           reverseTimerRef.current = null;
-                          setVideoReversing(false);
+                          setVideoPlaying(false);
                         }
-                      }, 100);
+                      }, 33);
                       return true;
                     })}>Reverse</Button>
                     <Button size="xs" colorScheme={loopEnabled ? 'purple' : 'gray'} onClick={() => { setLoopStart(slotPlayerRef.current?.getCurrentTime() ?? loopStart); setLoopEnabled((enabled) => !enabled); }}>LOOP</Button>
