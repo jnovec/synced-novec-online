@@ -120,6 +120,7 @@ export const VideoDisplay = ({
   const mediaRootRef = useRef<HTMLDivElement>(null);
   const slotPlayerRef = useRef<ReactPlayer>(null);
   const reverseTimerRef = useRef<number | null>(null);
+  const reversePositionRef = useRef<number | null>(null);
   const playbackFailuresRef = useRef(0);
   const previewReadyRef = useRef(false);
   const lastPlaybackProgressRef = useRef(0);
@@ -729,12 +730,15 @@ export const VideoDisplay = ({
                       if (reversing) {
                         if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
                         reverseTimerRef.current = null;
+                        reversePositionRef.current = null;
                         if (!videoPlaying) setVideoPlaying(true);
                         return false;
                       }
+                      reversePositionRef.current = slotPlayerRef.current?.getCurrentTime() ?? videoCurrentTime;
                       reverseTimerRef.current = window.setInterval(() => {
-                        const current = slotPlayerRef.current?.getCurrentTime() ?? videoCurrentTime;
+                        const current = reversePositionRef.current ?? videoCurrentTime;
                         const next = Math.max(0, current - (1 / 30));
+                        reversePositionRef.current = next;
                         slotPlayerRef.current?.seekTo(next, 'seconds');
                         setVideoCurrentTime(next);
                         if (next <= 0) {
