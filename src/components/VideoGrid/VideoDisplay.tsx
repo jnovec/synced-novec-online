@@ -731,8 +731,11 @@ export const VideoDisplay = ({
                         videoReversingRef.current = false;
                         if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
                         reverseTimerRef.current = null;
+                        const resumeTime = reversePositionRef.current ?? videoCurrentTime;
                         reversePositionRef.current = null;
-                        if (!videoPlaying) setVideoPlaying(true);
+                        slotPlayerRef.current?.seekTo(Math.max(0, resumeTime), 'seconds');
+                        setVideoCurrentTime(Math.max(0, resumeTime));
+                        setVideoPlaying(true);
                         return false;
                       }
                       videoReversingRef.current = true;
@@ -753,8 +756,6 @@ export const VideoDisplay = ({
                         if (next <= 0) {
                           if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
                           reverseTimerRef.current = null;
-                          videoReversingRef.current = false;
-                          setVideoReversing(false);
                           setVideoPlaying(false);
                         }
                       }, 33);
