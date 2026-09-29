@@ -7,7 +7,7 @@ import { isDisplaySlot } from '@/lib/displayMedia';
 import type { VideoSlot } from '@/lib/displayMedia';
 import { findVibrationGamepad, vibrateGamepad } from '@/lib/gamepadVibration';
 import { normalizeRemoteVideo, resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
-import { CloseIcon } from '@chakra-ui/icons';
+import { CloseIcon, RepeatIcon } from '@chakra-ui/icons';
 import {
   Badge,
   Box,
@@ -92,6 +92,7 @@ export const VideoDisplay = ({
   const audio = audioSettings[index];
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [streamStatus, setStreamStatus] = useState<'loading' | 'live' | 'error'>('loading');
   const [reloadKey, setReloadKey] = useState(0);
   const slotKeyRef = useRef<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -180,10 +181,12 @@ export const VideoDisplay = ({
     if (!slot?.url || isDisplay) {
       setResolvedUrl(null);
       setLoading(false);
+      setStreamStatus(isDisplay ? 'live' : 'error');
       return;
     }
 
     setLoading(true);
+    setStreamStatus('loading');
     const slotKey = `${slot.url}\n${slot.playbackUrl ?? ''}`;
     if (slotKeyRef.current !== slotKey) {
       slotKeyRef.current = slotKey;
@@ -199,6 +202,7 @@ export const VideoDisplay = ({
             window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: true } }));
             setResolvedUrl(streamUrl);
             setLoading(false);
+            setStreamStatus('loading');
             recoveryPendingRef.current = false;
             lastPlaybackProgressRef.current = Date.now();
             return;
@@ -213,6 +217,7 @@ export const VideoDisplay = ({
       if (!cancelled) {
         window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: false } }));
         setLoading(false);
+        setStreamStatus('error');
         recoveryPendingRef.current = false;
       }
     };
@@ -631,11 +636,14 @@ export const VideoDisplay = ({
                   },
                 }}
                 onError={() => {
+                  setStreamStatus('error');
                   window.dispatchEvent(new CustomEvent(SLOT_AVAILABILITY_EVENT, { detail: { index, available: false } }));
                   refreshStalledStream();
                 }}
+                onBuffer={() => setStreamStatus('loading')}
                 onDuration={(duration) => setVideoDuration(Number.isFinite(duration) ? duration : 0)}
                 onProgress={(state) => {
+                  setStreamStatus('live');
                   handlePlayerProgress();
                   setVideoCurrentTime(Number.isFinite(state.playedSeconds) ? state.playedSeconds : 0);
                   if (!loopEnabled || videoDuration <= 0) return;
@@ -863,9 +871,18 @@ export const VideoDisplay = ({
               py="1"
               borderRadius="md"
             >
-              <Text color="#EEEEEC" fontSize="xs" noOfLines={1} minW={0}>
+              <Flex alignItems="center" gap="1" minW={0}>
+                <Box
+                  boxSize="8px"
+                  borderRadius="full"
+                  bg={streamStatus === 'live' ? 'green.300' : streamStatus === 'error' ? 'red.400' : 'orange.300'}
+                  title={streamStatus === 'live' ? 'Stream běží' : streamStatus === 'error' ? 'Stream není dostupný' : 'Stream se načítá'}
+                  flexShrink={0}
+                />
+                <Text color="#EEEEEC" fontSize="xs" noOfLines={1} minW={0}>
                 {slot.name}
-              </Text>
+                </Text>
+              </Flex>
               <Flex
                 alignItems="center"
                 gap="2"
@@ -873,6 +890,16 @@ export const VideoDisplay = ({
                 onClick={(event) => event.stopPropagation()}
                 aria-label={`Ovládání zvuku pro slot ${index + 1}`}
               >
+                {streamStatus === 'error' && (
+                  <IconButton
+                    size="xs"
+                    h="20px"
+                    minW="20px"
+                    aria-label={`Obnovit stream ve slotu ${index + 1}`}
+                    icon={<RepeatIcon />}
+                    onClick={() => setReloadKey((key) => key + 1)}
+                  />
+                )}
                 <Button
                   size="xs"
                   minW="44px"
