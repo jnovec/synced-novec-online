@@ -44,6 +44,7 @@ const PLAYBACK_STALL_MS = 12_000;
 const PLAYBACK_WATCH_INTERVAL_MS = 4_000;
 const PLAYBACK_RETRY_COOLDOWN_MS = 15_000;
 const SLOT_AVAILABILITY_EVENT = 'synced:slot-availability';
+const SLOT_LAYOUT_RELOAD_EVENT = 'synced:slot-layout-reload';
 const isHlsPlaybackUrl = (url: string) => /\.m3u8(?:$|[?#])/i.test(url);
 
 const waitFor = (milliseconds: number) => new Promise<void>((resolve) => {
@@ -167,6 +168,12 @@ export const VideoDisplay = ({
     window.addEventListener(DUPLICATE_SOURCE_EVENT, handleDuplicateHighlight);
     return () => window.removeEventListener(DUPLICATE_SOURCE_EVENT, handleDuplicateHighlight);
   }, [index]);
+
+  useEffect(() => {
+    const reloadSlot = () => setReloadKey((key) => key + 1);
+    window.addEventListener(SLOT_LAYOUT_RELOAD_EVENT, reloadSlot);
+    return () => window.removeEventListener(SLOT_LAYOUT_RELOAD_EVENT, reloadSlot);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

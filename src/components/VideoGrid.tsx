@@ -1,10 +1,13 @@
 import { useControlsContext } from '@/contexts/useControls';
 import { useChannelsContext } from '@/contexts/useChannels';
-import { Box, Button, Flex, Grid, Image, Link, Text } from '@chakra-ui/react';
+import { Box, Button, Flex, Grid, Image, Link, Text, IconButton } from '@chakra-ui/react';
+import { RepeatIcon } from '@chakra-ui/icons';
 import { useEffect, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 import { usePagePip } from '@/hooks/usePagePip';
 import { VideoDisplay } from './VideoGrid/VideoDisplay';
+
+const SLOT_LAYOUT_RELOAD_EVENT = 'synced:slot-layout-reload';
 
 export const VideoGrid = () => {
   const { slots, gridSize, gridSizeMap } = useControlsContext();
@@ -135,11 +138,19 @@ export const VideoGrid = () => {
           zIndex={2}
           flexShrink={0}
           bg="gray.600"
-          onClick={() => setStripVertical((vertical) => !vertical)}
+          onMouseEnter={() => setStripVertical((vertical) => !vertical)}
           aria-label="Přepnout orientaci panelu"
         >
           {stripVertical ? '↔' : '↕'}
         </Button>
+        <IconButton
+          aria-label="Obnovit rozložení slotů"
+          icon={<RepeatIcon />}
+          size="xs"
+          colorScheme="gray"
+          flexShrink={0}
+          onMouseEnter={() => window.dispatchEvent(new CustomEvent(SLOT_LAYOUT_RELOAD_EVENT))}
+        />
         <Box
           ref={stripRef}
           overflow={stripVertical ? 'auto' : 'hidden'}
