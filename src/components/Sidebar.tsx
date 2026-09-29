@@ -328,6 +328,10 @@ export const Sidebar = () => {
   }, []);
 
   useEffect(() => {
+    window.dispatchEvent(new CustomEvent('synced:preview-loading', { detail: { loading: previewLoading } }));
+  }, [previewLoading]);
+
+  useEffect(() => {
     if (!resolvedPreviewUrl) return;
 
     lastPreviewProgress.current = Date.now();

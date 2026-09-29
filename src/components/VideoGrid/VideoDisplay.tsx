@@ -45,6 +45,7 @@ const PLAYBACK_WATCH_INTERVAL_MS = 4_000;
 const PLAYBACK_RETRY_COOLDOWN_MS = 15_000;
 const SLOT_AVAILABILITY_EVENT = 'synced:slot-availability';
 const SLOT_LAYOUT_RELOAD_EVENT = 'synced:slot-layout-reload';
+const PREVIEW_LOADING_EVENT = 'synced:preview-loading';
 const isHlsPlaybackUrl = (url: string) => /\.m3u8(?:$|[?#])/i.test(url);
 
 const waitFor = (milliseconds: number) => new Promise<void>((resolve) => {
@@ -122,6 +123,7 @@ export const VideoDisplay = ({
   const lastPlaybackProgressRef = useRef(0);
   const recoveryPendingRef = useRef(false);
   const nextRecoveryAtRef = useRef(0);
+  const previewHoldRef = useRef(false);
   const { status: buttplugStatus, devices: toyDevices, vibrateDevice, stopDevice } = useButtplugContext();
   const { status: vibrationStatus, level: vibrationLevel } = useAudioGamepadVibration({
     stream: isDisplay ? displayStream : null,
@@ -175,6 +177,25 @@ export const VideoDisplay = ({
     window.addEventListener(SLOT_LAYOUT_RELOAD_EVENT, reloadSlot);
     return () => window.removeEventListener(SLOT_LAYOUT_RELOAD_EVENT, reloadSlot);
   }, []);
+
+  useEffect(() => {
+    const handlePreviewLoading = (event: Event) => {
+      const loading = Boolean((event as CustomEvent<{ loading?: boolean }>).detail?.loading);
+      if (loading) {
+        if (videoPlaying && !videoReversing) {
+          previewHoldRef.current = true;
+          setVideoPlaying(false);
+        }
+        return;
+      }
+      if (previewHoldRef.current) {
+        previewHoldRef.current = false;
+        setVideoPlaying(true);
+      }
+    };
+    window.addEventListener(PREVIEW_LOADING_EVENT, handlePreviewLoading);
+    return () => window.removeEventListener(PREVIEW_LOADING_EVENT, handlePreviewLoading);
+  }, [videoPlaying, videoReversing]);
 
   useEffect(() => {
     let cancelled = false;
