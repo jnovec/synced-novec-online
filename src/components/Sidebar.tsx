@@ -254,7 +254,7 @@ export const Sidebar = () => {
 
   const handlePreviewPlayerError = () => {
     previewPlaybackFailures.current += 1;
-    setPreviewReloadKey((current) => current + 1);
+    setPreviewError('Stream se dočasně nepodařilo přehrát. Zkus ho obnovit.');
   };
 
   const handlePreviewProgress = () => {
@@ -330,19 +330,6 @@ export const Sidebar = () => {
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('synced:preview-loading', { detail: { loading: previewLoading } }));
   }, [previewLoading]);
-
-  useEffect(() => {
-    if (!resolvedPreviewUrl) return;
-
-    lastPreviewProgress.current = Date.now();
-    const watchdog = window.setInterval(() => {
-      if (Date.now() - lastPreviewProgress.current < 12_000) return;
-      setPreviewReloadKey((current) => current + 1);
-      lastPreviewProgress.current = Date.now();
-    }, 4_000);
-
-    return () => window.clearInterval(watchdog);
-  }, [resolvedPreviewUrl]);
 
   useEffect(() => {
     if (!isChaturbateSource) return;
