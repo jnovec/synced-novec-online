@@ -668,7 +668,9 @@ export const VideoDisplay = ({
                 onProgress={(state) => {
                   setStreamStatus('live');
                   handlePlayerProgress();
-                  setVideoCurrentTime(Number.isFinite(state.playedSeconds) ? state.playedSeconds : 0);
+                  if (!videoReversing) {
+                    setVideoCurrentTime(Number.isFinite(state.playedSeconds) ? state.playedSeconds : 0);
+                  }
                   if (!loopEnabled || videoDuration <= 0) return;
                   const end = Math.min(videoDuration, loopStart + loopSeconds);
                   if (state.playedSeconds >= end || state.playedSeconds < loopStart) slotPlayerRef.current?.seekTo(loopStart, 'seconds');
