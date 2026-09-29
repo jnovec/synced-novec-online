@@ -14,6 +14,7 @@ import {
   Button,
   Flex,
   GridItem,
+  Image,
   IconButton,
   Input,
   Modal,
@@ -92,6 +93,7 @@ export const VideoDisplay = ({
   const isBusyGrid = activeRemoteStreamCount > 4;
   const audio = audioSettings[index];
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
+  const [lastFrameUrl, setLastFrameUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [streamStatus, setStreamStatus] = useState<'loading' | 'live' | 'error'>('loading');
@@ -270,6 +272,18 @@ export const VideoDisplay = ({
   const refreshStalledStream = () => {
     const now = Date.now();
     if (recoveryPendingRef.current || now < nextRecoveryAtRef.current || !slot?.url || isDisplay) return;
+    const video = mediaRootRef.current?.querySelector<HTMLVideoElement>('video');
+    if (video && video.readyState >= 2 && video.videoWidth > 0) {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
+        setLastFrameUrl(canvas.toDataURL('image/jpeg', 0.78));
+      } catch {
+        // Some CDN responses intentionally disallow canvas capture.
+      }
+    }
     recoveryPendingRef.current = true;
     playbackFailuresRef.current += 1;
     nextRecoveryAtRef.current = now + Math.min(60_000, PLAYBACK_RETRY_COOLDOWN_MS * 2 ** Math.min(playbackFailuresRef.current - 1, 2));
@@ -296,6 +310,10 @@ export const VideoDisplay = ({
 
     return () => window.clearInterval(watchdog);
   }, [isDisplay, resolvedUrl]);
+
+  useEffect(() => {
+    setLastFrameUrl(null);
+  }, [slot?.playbackUrl, slot?.url]);
 
   const handleClick = () => {
     if (slot) {
@@ -636,6 +654,19 @@ export const VideoDisplay = ({
               </Flex>
             ) : resolvedUrl ? (
               <>
+              {lastFrameUrl && (loading || isBuffering || streamStatus === 'loading') && (
+                <Image
+                  src={lastFrameUrl}
+                  alt="Poslední dostupný snímek streamu"
+                  position="absolute"
+                  inset={0}
+                  w="full"
+                  h="full"
+                  objectFit="cover"
+                  zIndex={1}
+                  pointerEvents="none"
+                />
+              )}
               <ReactPlayer
                 ref={slotPlayerRef}
                 width="100%"
