@@ -583,7 +583,7 @@ export const VideoDisplay = ({
             {isDisplay && displayStream ? (
               <DisplayMediaPlayer
                 stream={displayStream}
-                muted={isFullscreenActive || audio.muted}
+                muted={audio.muted}
                 volume={audio.volume}
               />
             ) : loading && !resolvedUrl ? (
