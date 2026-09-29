@@ -165,6 +165,10 @@ export const VideoGrid = () => {
         <Box
           ref={stripRef}
           overflow={stripVertical ? 'auto' : 'hidden'}
+          sx={{
+            scrollbarWidth: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
+          }}
           overscrollBehaviorX="contain"
           maxW={stripVertical ? undefined : 'calc(90vw - 64px)'}
           maxH={stripVertical ? 'calc(80vh - 16px)' : undefined}
