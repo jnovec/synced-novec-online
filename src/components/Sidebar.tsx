@@ -42,7 +42,7 @@ const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSele
   const [hovered, setHovered] = useState(false);
   const [playPreview, setPlayPreview] = useState(false);
   useEffect(() => {
-    if (!hovered) { setPlayPreview(false); return; }
+    if (!hovered) return;
     const timer = window.setTimeout(() => setPlayPreview(true), 250);
     return () => window.clearTimeout(timer);
   }, [hovered]);
@@ -121,7 +121,6 @@ export const Sidebar = () => {
     let pointerY = window.innerHeight / 2;
     const updatePosition = () => {
       frame = 0;
-      // Update only the tab, not the stream players, on pointer movement.
       const top = Math.max(0, Math.min(window.innerHeight - 48, pointerY - 24));
       if (moreRoomsRestoreRef.current) moreRoomsRestoreRef.current.style.top = `${top}px`;
     };
@@ -202,7 +201,6 @@ export const Sidebar = () => {
       if (typeof preferences.sourceUrl === 'string') setSourceUrl(preferences.sourceUrl);
     }
     sidebarPreferencesLoadedRef.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -240,7 +238,7 @@ export const Sidebar = () => {
       return;
     }
     setSlotVideo(emptySlot, selectedVideo);
-    toast({ title: `Preview přidáno do okna ${emptySlot + 1}`, status: 'success', duration: 1600 });
+    toast({ title: "Preview přidáno do okna " + (emptySlot + 1), status: "success", duration: 1600 });
   };
   const handlePreviewDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest('button')) return;
@@ -288,8 +286,6 @@ export const Sidebar = () => {
       const accordionItem = selectedItem.closest<HTMLElement>('[data-index]');
       const expandButton = accordionItem?.querySelector<HTMLButtonElement>('button[aria-expanded="false"]');
       expandButton?.click();
-      // Keep the selected stream near the second visible row while the
-      // expanded category header remains in the same scroll context.
       selectedItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
 
@@ -387,7 +383,6 @@ export const Sidebar = () => {
             return;
           }
         } catch {
-          // A short-lived upstream URL can fail once while a model changes stream edge.
         }
 
         if (attempt < STREAM_RESOLVE_ATTEMPTS) await waitForRetry(attempt);
@@ -518,7 +513,6 @@ export const Sidebar = () => {
       await loadSource(searchSourceUrl, '', nextPage, true);
       setSearchPage(nextPage);
     } catch {
-      // Keep the already loaded results visible when the next page is unavailable.
     } finally {
       loadingMoreRoomsRef.current = false;
     }
@@ -535,7 +529,6 @@ export const Sidebar = () => {
       moreRoomsScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       if (searchSourceUrl) setSearchPage(1);
     } catch {
-      // The normal source error message remains visible in the sidebar.
     }
   };
 
@@ -606,442 +599,271 @@ export const Sidebar = () => {
             </Box>
           ) : (
             <Flex flexDir="column" gap="1" minH={0} flex="1" overflow="hidden">
-          <Box order={2} borderWidth="1px" borderColor={isPreviewDropActive ? 'cyan.300' : 'whiteAlpha.200'} borderRadius="lg" bg="blackAlpha.300" p="3">
-            <Flex justifyContent="space-between" alignItems="center" mb="2">
-              <Box minW={0}>
-                <Text color="#EEEEEE" fontWeight="semibold">
-                  Preview
+              <Box order={1} borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="3">
+                <Text color="#EEEEEE" fontSize="sm" fontWeight="semibold" mb="2">
+                  Přidat webový zdroj
                 </Text>
-                <Text color="gray.400" fontSize="sm" noOfLines={1}>
-                  {selectedVideo?.name ?? 'Vyber stream vlevo pro náhled'}
-                </Text>
-              </Box>
-              <Flex alignItems="center" gap="1">
-                <Badge colorScheme={selectedVideo && !previewError ? 'green' : 'gray'}>{selectedVideo && !previewError ? 'ready' : 'empty'}</Badge>
-                <IconButton
-                  aria-label="Obnovit náhled streamu"
-                  icon={<RepeatIcon />}
-                  size="xs"
-                  variant="ghost"
-                  color="gray.300"
-                  onClick={refreshPreview}
-                  isDisabled={!selectedVideo || previewLoading}
-                />
-              </Flex>
-            </Flex>
-
-            <Box
-              borderRadius="md"
-              overflow="hidden"
-              bg="black"
-              borderWidth="2px"
-              borderColor={isPreviewDropActive ? 'cyan.300' : 'whiteAlpha.200'}
-              boxShadow={isPreviewDropActive ? '0 0 0 2px rgba(34,211,238,.35), 0 0 24px rgba(34,211,238,.25)' : undefined}
-              position="relative"
-              draggable={Boolean(selectedVideo)}
-              cursor={selectedVideo ? 'grab' : 'default'}
-              onDragStart={handlePreviewDragStart}
-              onDoubleClick={handlePreviewDoubleClick}
-              onDragEnter={handlePreviewDragOver}
-              onDragOver={handlePreviewDragOver}
-              onDragLeave={handlePreviewDragLeave}
-              onDrop={handlePreviewDrop}
-            >
-              {previewLoading ? (
-                <Flex h="170px" alignItems="center" justifyContent="center" direction="column" gap="2" color="gray.400">
-                  <Spinner size="sm" />
-                  <Text fontSize="sm">Načítám stream…</Text>
-                </Flex>
-              ) : resolvedPreviewUrl ? (
-                <Box h="170px" position="relative">
-                  <ReactPlayer
-                    width="100%"
-                    height="100%"
-                    url={resolvedPreviewUrl}
-                    ref={previewPlayerRef}
-                    playing={previewPlaying && !previewReversing}
-                    muted
-                    volume={0}
-                    controls
-                    config={{
-                      file: {
-                        forceHLS: isHlsPlaybackUrl(resolvedPreviewUrl),
-                        attributes: {
-                          crossOrigin: 'true',
-                          playsInline: true,
-                        },
-                        ...(isHlsPlaybackUrl(resolvedPreviewUrl) ? { hlsOptions: {
-                          lowLatencyMode: false,
-                          liveSyncDurationCount: 3,
-                          liveMaxLatencyDurationCount: 10,
-                          manifestLoadingMaxRetry: 4,
-                          levelLoadingMaxRetry: 4,
-                          fragLoadingMaxRetry: 6,
-                          fragLoadingRetryDelay: 800,
-                        } } : {}),
-                      },
+                <Flex gap="2">
+                  <Input
+                    size="sm"
+                    value={sourceUrl}
+                    onChange={(event) => setSourceUrl(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') void handleSourceSubmit();
                     }}
-                    onError={handlePreviewPlayerError}
-                    onDuration={setPreviewDuration}
-                    onProgress={(state) => {
-                      handlePreviewProgress();
-                      if (!previewLoopEnabled || previewDuration <= 0) return;
-                      const end = Math.min(previewDuration, previewLoopStart + previewLoopSeconds);
-                      if (state.playedSeconds >= end || state.playedSeconds < previewLoopStart) previewPlayerRef.current?.seekTo(previewLoopStart, 'seconds');
-                    }}
-                    style={{ position: 'absolute', inset: 0 }}
-                  />
-                  {!isHlsPlaybackUrl(resolvedPreviewUrl) && (
-                    <Flex position="absolute" left="2" right="2" bottom="2" gap="1" alignItems="center" bg="blackAlpha.800" borderRadius="md" p="1" zIndex={2}>
-                      <Button size="xs" colorScheme="blue" onClick={() => setPreviewPlaying((playing) => !playing)}>{previewPlaying ? 'Pause' : 'Play'}</Button>
-                      <Button size="xs" colorScheme={previewReversing ? 'orange' : 'gray'} onClick={() => {
-                        setPreviewReversing((reversing) => {
-                          if (reversing) {
-                            if (previewReverseTimerRef.current !== null) window.clearInterval(previewReverseTimerRef.current);
-                            previewReverseTimerRef.current = null;
-                            return false;
-                          }
-                          previewReverseTimerRef.current = window.setInterval(() => {
-                            const current = previewPlayerRef.current?.getCurrentTime() ?? 0;
-                            previewPlayerRef.current?.seekTo(Math.max(0, current - 0.2), 'seconds');
-                          }, 100);
-                          return true;
-                        });
-                      }}>Reverse</Button>
-                      <Button size="xs" colorScheme={previewLoopEnabled ? 'purple' : 'gray'} onClick={() => {
-                        setPreviewLoopStart(previewPlayerRef.current?.getCurrentTime() ?? previewLoopStart);
-                        setPreviewLoopEnabled((enabled) => !enabled);
-                      }}>LOOP</Button>
-                      <Input aria-label="Délka smyčky v sekundách" value={previewLoopSeconds} onChange={(event) => setPreviewLoopSeconds(Math.max(1, Number(event.target.value) || 1))} type="number" min={1} max={3600} size="xs" w="58px" bg="blackAlpha.700" />
-                      <Button size="xs" onClick={() => setPreviewLoopStart((start) => Math.max(0, start - 0.5))}>&lt;</Button>
-                      <Text fontSize="10px" color="gray.300" minW="45px" textAlign="center">{previewLoopStart.toFixed(1)}s</Text>
-                      <Button size="xs" onClick={() => setPreviewLoopStart((start) => Math.min(Math.max(0, previewDuration - previewLoopSeconds), start + 0.5))}>&gt;</Button>
-                    </Flex>
-                  )}
-                  {isPreviewDropActive && (
-                    <Flex position="absolute" inset={0} alignItems="center" justifyContent="center" bg="blackAlpha.700" pointerEvents="none">
-                      <Badge colorScheme="cyan" fontSize="sm" px="3" py="2">
-                        Pusť stream sem
-                      </Badge>
-                    </Flex>
-                  )}
-                </Box>
-              ) : selectedVideo && shouldEmbedRemotePage(selectedVideo.url) ? (
-                <Box
-                  as="iframe"
-                  title={`Náhled ${selectedVideo.name}`}
-                  src={selectedVideo.url}
-                  h="170px"
-                  w="100%"
-                  border="0"
-                  sandbox="allow-scripts allow-forms allow-popups allow-presentation"
-                  referrerPolicy="no-referrer"
-                  pointerEvents="none"
-                />
-              ) : previewError ? (
-                <Flex h="170px" alignItems="center" justifyContent="center" direction="column" gap="3" color="gray.300" px="4" textAlign="center">
-                  <Text fontSize="sm">{previewError}</Text>
-                  <Button size="sm" leftIcon={<RepeatIcon />} onClick={refreshPreview}>
-                    Obnovit stream
-                  </Button>
-                </Flex>
-              ) : (
-                <Flex h="170px" alignItems="center" justifyContent="center" direction="column" gap="1" color={isPreviewDropActive ? 'cyan.200' : 'gray.500'}>
-                  <Image src="/favicon.ico" alt="preview" boxSize="28px" opacity={0.6} />
-                  <Text fontSize="sm">{isPreviewDropActive ? 'Pusť stream sem' : 'Žádný aktivní náhled'}</Text>
-                </Flex>
-              )}
-              <Flex position="absolute" bottom="2" left="0" right="0" justifyContent="space-between" px="2" pointerEvents="none">
-                <IconButton aria-label="Předchozí stream v Preview" icon={<ChevronLeftIcon />} size="sm" colorScheme="blackAlpha" onClick={() => movePreview(-1)} isDisabled={!previewCandidates.length} pointerEvents="auto" />
-                <Button size="xs" colorScheme="purple" onClick={randomizePreview} isDisabled={!previewCandidates.length} pointerEvents="auto" aria-label="Náhodný načtený stream">
-                  🎲 Náhodně
-                </Button>
-                <IconButton aria-label="Další stream v Preview" icon={<ChevronRightIcon />} size="sm" colorScheme="blackAlpha" onClick={() => movePreview(1)} isDisabled={!previewCandidates.length} pointerEvents="auto" />
-              </Flex>
-            </Box>
-
-            <Flex mt="3" justifyContent="space-between" alignItems="center" gap="2">
-              <Text color="#EEEEEC" fontSize="sm" noOfLines={1} flex="1">
-                {selectedVideo?.name ?? ' '}
-              </Text>
-              <Flex gap="2">
-                <Button size="xs" colorScheme="blue" onClick={addPreviewToGrid} isDisabled={!selectedVideo}>
-                  Přidat do okna
-                </Button>
-                <Button size="xs" colorScheme="green" onClick={handleSavePreview} isDisabled={!selectedVideo}>
-                  Uložit do playlistu
-                </Button>
-                <Button size="xs" variant="outline" onClick={() => setSelectedVideo(null)} isDisabled={!selectedVideo}>
-                  Clear
-                </Button>
-              </Flex>
-            </Flex>
-          </Box>
-
-          <Box order={1} borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="3">
-            <Text color="#EEEEEE" fontSize="sm" fontWeight="semibold" mb="2">
-              Přidat webový zdroj
-            </Text>
-            <Flex gap="2">
-              <Input
-                size="sm"
-                value={sourceUrl}
-                onChange={(event) => setSourceUrl(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') void handleSourceSubmit();
-                }}
-                placeholder={selectedVideo?.url ?? 'https://example.com nebo bongacams.com'}
-                color="#EEEEEC"
-                _placeholder={{ color: 'whiteAlpha.600' }}
-                bg="black"
-                borderColor="whiteAlpha.400"
-                list="supported-source-websites"
-                aria-label="URL webu se streamy"
-              />
-              <datalist id="supported-source-websites">
-                {supportedSourceWebsites.map((website) => (
-                  <option key={website} value={website} />
-                ))}
-              </datalist>
-              <IconButton
-                aria-label="Načíst webový zdroj"
-                icon={<AddIcon />}
-                size="sm"
-                colorScheme="red"
-                isLoading={isLoadingSource}
-                isDisabled={!sourceUrl.trim()}
-                onClick={() => void handleSourceSubmit()}
-              />
-            </Flex>
-            <Flex mt="2" gap="2">
-              <Select size="sm" value={searchSite} onChange={(event) => setSearchSite(event.target.value as keyof typeof searchSourceSites)} bg="black" color="#EEEEEC" borderColor="whiteAlpha.400" aria-label="Vyhledávat na webu">
-                {Object.keys(searchSourceSites).map((site) => <option key={site} value={site}>{site}</option>)}
-              </Select>
-              <Input size="sm" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void handleSiteSearch(); }} placeholder="Hledat video…" color="#EEEEEC" bg="black" borderColor="whiteAlpha.400" aria-label="Hledat video" />
-              <Button size="sm" colorScheme="purple" onClick={() => void handleSiteSearch()} isLoading={isLoadingSource} isDisabled={!searchQuery.trim()}>Hledat</Button>
-            </Flex>
-            {isChaturbateSource && (
-              <>
-                <Flex mt="2" gap="2" alignItems="center">
-                  <Text color="gray.300" fontSize="xs" whiteSpace="nowrap">Tag</Text>
-                  <Select
-                    size="xs"
-                    value={chaturbateTag}
-                    onChange={(event) => setChaturbateTag(event.target.value)}
+                    placeholder={selectedVideo?.url ?? 'https://example.com nebo bongacams.com'}
+                    color="#EEEEEC"
+                    _placeholder={{ color: 'whiteAlpha.600' }}
                     bg="black"
                     borderColor="whiteAlpha.400"
-                    color="#EEEEEC"
-                    aria-label="Chaturbate tag"
-                  >
-                    {chaturbateTags.map((tag) => (
-                      <option key={tag} value={tag}>#{tag}</option>
+                    list="supported-source-websites"
+                    aria-label="URL webu se streamy"
+                  />
+                  <datalist id="supported-source-websites">
+                    {supportedSourceWebsites.map((website) => (
+                      <option key={website} value={website} />
                     ))}
-                  </Select>
-                  <Button size="xs" colorScheme="pink" onClick={() => void handleSourceSubmit()} isLoading={isLoadingSource || isLoadingChaturbateTags}>
-                    Načíst tag
-                  </Button>
-                </Flex>
-                <Button mt="2" size="xs" variant="outline" colorScheme="purple" onClick={() => setIsChaturbateEmbedOpen((open) => !open)}>
-                  {isChaturbateEmbedOpen ? 'Skrýt embedded seznam' : 'Zobrazit embedded seznam'}
-                </Button>
-                {isChaturbateEmbedOpen && (
-                  <Flex mt="2" minH="180px" p="4" borderWidth="1px" borderColor="whiteAlpha.300" borderRadius="md" bg="blackAlpha.400" direction="column" justifyContent="center" alignItems="center" gap="3" textAlign="center">
-                    <Text color="gray.300" fontSize="sm">
-                      Chaturbate tento affiliate seznam technicky blokuje pro vložení do iframe.
-                    </Text>
-                    <Button as="a" href={CHATURBATE_EMBED_LISTING_URL} target="_blank" rel="noreferrer" size="sm" colorScheme="purple">
-                      Otevřít seznam na Chaturbate
-                    </Button>
-                    <Text color="gray.500" fontSize="xs">
-                      Streamy do gridu dál přidáš z načtených tagů níže.
-                    </Text>
-                  </Flex>
-                )}
-              </>
-            )}
-            <Box color="gray.400" fontSize="xs" mt="2">
-              <Flex gap="1" flexWrap="wrap" alignItems="center">
-                <Text as="span">Podporované weby:</Text>
-                {supportedSourceWebsites.map((website) => (
-                  <Button key={website} size="xs" variant="link" color="blue.200" onClick={() => setSourceUrl(website)}>{website}</Button>
-                ))}
-              </Flex>
-            </Box>
-          </Box>
-
-          <Divider order={3} borderColor="whiteAlpha.300" />
-
-          <Flex order={4} position="relative" flex="1" minH={0} direction="column" overflow="hidden">
-            {sourceError && (
-              <Text color="red.300" fontSize="xs" px="1" pb="2">
-                {sourceError}
-              </Text>
-            )}
-            <Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="2" mb="0">
-              <Flex gap="2">
-                <Select
-                  size="sm"
-                  value={selectedCategoryIndex}
-                  onChange={(event) => setSelectedCategoryIndex(Number(event.target.value))}
-                  bg="purple.500"
-                  color="white"
-                  borderColor="purple.300"
-                  _hover={{ bg: 'purple.600' }}
-                  sx={{ option: { color: '#1A202C', background: 'white' } }}
-                  aria-label="Vybraná kategorie streamů"
-                >
-                  {sourceCategories.map(([category, sourceChannels], categoryIndex) => (
-                    <option key={category} value={categoryIndex}>{category} ({sourceChannels.length})</option>
-                  ))}
-                </Select>
-                <Button size="sm" colorScheme="purple" onClick={() => setIsMoreRoomsOpen((open) => !open)}>
-                  {isMoreRoomsOpen ? 'Skrýt' : 'More Rooms'}
-                </Button>
-              </Flex>
-            </Box>
-            {isMoreRoomsOpen && !isFullscreenOpen && <>
-            <IconButton
-              ref={moreRoomsRestoreRef}
-              aria-label="Vrátit panel More Rooms"
-              aria-controls="more-rooms-panel"
-              aria-expanded={!isMoreRoomsMinimized}
-              icon={moreRoomsOnLeft ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-              position="fixed"
-              {...(moreRoomsOnLeft ? { left: 0 } : { right: 0 })}
-              top="calc(50vh - 24px)"
-              zIndex={31}
-              w="28px"
-              minW="28px"
-              h="48px"
-              colorScheme="purple"
-              borderRadius={moreRoomsOnLeft ? '0 8px 8px 0' : '8px 0 0 8px'}
-              visibility={isMoreRoomsMinimized ? 'visible' : 'hidden'}
-              opacity={isMoreRoomsMinimized ? 1 : 0}
-              transition="opacity 180ms ease"
-              onMouseEnter={() => setIsMoreRoomsMinimized(false)}
-              onClick={() => setIsMoreRoomsMinimized(false)}
-              sx={{
-                '--peek-direction': moreRoomsOnLeft ? '1' : '-1',
-                animation: isMoreRoomsMinimized ? 'moreRoomsPeek 7s ease-in-out infinite' : 'none',
-                '@keyframes moreRoomsPeek': {
-                  '0%, 82%, 100%': { transform: 'translateX(0)' },
-                  '86%, 94%': { transform: 'translateX(calc(var(--peek-direction) * 7px)) rotate(-5deg)' },
-                  '90%, 97%': { transform: 'translateX(calc(var(--peek-direction) * 3px)) rotate(5deg)' },
-                },
-                '&:hover, &:focus-visible': { animation: 'none' },
-                '@media (prefers-reduced-motion: reduce)': { transition: 'none', animation: 'none' },
-              }}
-            />
-            <Box
-              id="more-rooms-panel"
-              aria-hidden={isMoreRoomsMinimized}
-              position="fixed"
-              {...moreRoomsPositionStyles}
-              w="340px"
-              zIndex={30}
-              minW="280px"
-              maxW="80vw"
-              minH="180px"
-              h={`${moreRoomsHeight}px`}
-              maxH="calc(100vh - 32px)"
-              overflow="hidden"
-              display="flex"
-              flexDirection="column"
-              overscrollBehavior="contain"
-              borderWidth="1px"
-              borderColor="purple.300"
-              borderRadius="lg"
-              bg="#111807"
-              p="2"
-              boxShadow="0 12px 28px rgba(0,0,0,.65)"
-              transform={isMoreRoomsMinimized
-                ? `translateX(${moreRoomsOnLeft ? 'calc(-100% - 48px)' : 'calc(100% + 48px)'})`
-                : 'translateX(0)'}
-              visibility={isMoreRoomsMinimized ? 'hidden' : 'visible'}
-              pointerEvents={isMoreRoomsMinimized ? 'none' : 'auto'}
-              transition={`transform 280ms ease-in-out, visibility 0s ${isMoreRoomsMinimized ? '280ms' : '0s'}`}
-              onMouseLeave={() => setIsMoreRoomsMinimized(true)}
-              sx={{ resize: 'both', '@media (prefers-reduced-motion: reduce)': { transition: 'none' } }}
-            >
-              <Box position="absolute" top="0" left="12px" right="12px" h="8px" cursor="ns-resize" zIndex={5} onPointerDown={(event) => {
-                event.preventDefault();
-                resizingMoreRoomsRef.current = { startY: event.clientY, startHeight: moreRoomsHeight, edge: 'top' };
-              }} />
-              <Box position="absolute" bottom="0" left="12px" right="12px" h="8px" cursor="ns-resize" zIndex={5} onPointerDown={(event) => {
-                event.preventDefault();
-                resizingMoreRoomsRef.current = { startY: event.clientY, startHeight: moreRoomsHeight, edge: 'bottom' };
-              }} />
-              <Flex
-                position="relative"
-                flexShrink={0}
-                zIndex={3}
-                alignItems="center"
-                justifyContent="space-between"
-                mb="2"
-                py="1"
-                bg="#111807"
-              >
-                <Text color="gray.300" fontSize="xs" fontWeight="semibold">More Rooms</Text>
-                <Flex alignItems="center" gap="1">
-                  <Text color="gray.500" fontSize="10px">Přetáhni do okna</Text>
-                  <IconButton aria-label="Obnovit More Rooms" icon={<RepeatIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => void refreshMoreRooms()} isLoading={isLoadingSource} />
-                  <IconButton aria-label="Přesunout panel More Rooms" icon={<ChevronRightIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => setMoreRoomsPosition((position) => (position + 1) % 4)} />
-                  <IconButton aria-label="Minimalizovat More Rooms" icon={<MinusIcon />} size="xs" variant="ghost" color="gray.300" onMouseEnter={() => setIsMoreRoomsMinimized(true)} onClick={() => setIsMoreRoomsMinimized(true)} />
-                </Flex>
-              </Flex>
-              <Box ref={moreRoomsScrollRef} flex="1" minH={0} overflowY="auto" overflowX="hidden" overscrollBehavior="contain" p="2" onScroll={(event) => {
-                const element = event.currentTarget;
-                if (element.scrollTop + element.clientHeight >= element.scrollHeight - 160) void loadMoreSearchResults();
-              }}>
-              <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
-                {visibleMoreRooms.map((channel) => (
-                  <MoreRoomCard
-                    key={`more-room-${channel.url}`}
-                    {...channel}
-                    selected={selectedVideo?.url === channel.url}
-                    onSelect={() => {
-                      roomPip.close();
-                      setSelectedVideo({ url: channel.url, name: channel.name, ...(channel.playbackUrl ? { playbackUrl: channel.playbackUrl } : {}) });
-                      setIsMoreRoomsMinimized(true);
-                    }}
-                  />
-                ))}
-              </Box>
-              {searchSourceUrl && (
-                <Flex justifyContent="center" mt="3">
-                  <Button
-                    size="sm"
-                    colorScheme="purple"
-                    onClick={() => void loadMoreSearchResults()}
-                    isLoading={isLoadingSource}
-                    isDisabled={isLoadingSource}
-                  >
-                    Načíst další výsledky
-                  </Button>
-                </Flex>
-              )}
-              <Flex alignItems="center" justifyContent="space-between" mt="2" pt="2" borderTopWidth="1px" borderColor="whiteAlpha.200">
-                <Text color="gray.500" fontSize="10px">{moreRoomsItems.length} načtených streamů</Text>
-                {searchSourceUrl && <Text color="gray.500" fontSize="10px">stránka {searchPage}</Text>}
-                <Flex gap="1">
+                  </datalist>
                   <IconButton
-                    aria-label="Přesunout panel More Rooms"
-                    icon={<ChevronRightIcon />}
-                    size="xs"
-                    colorScheme="purple"
-                    onClick={() => setMoreRoomsPosition((position) => (position + 1) % 4)}
+                    aria-label="Načíst webový zdroj"
+                    icon={<AddIcon />}
+                    size="sm"
+                    colorScheme="red"
+                    isLoading={isLoadingSource}
+                    isDisabled={!sourceUrl.trim()}
+                    onClick={() => void handleSourceSubmit()}
                   />
                 </Flex>
-              </Flex>
+                <Flex mt="2" gap="2">
+                  <Select size="sm" value={searchSite} onChange={(event) => setSearchSite(event.target.value as keyof typeof searchSourceSites)} bg="black" color="#EEEEEC" borderColor="whiteAlpha.400" aria-label="Vyhledávat na webu">
+                    {Object.keys(searchSourceSites).map((site) => <option key={site} value={site}>{site}</option>)}
+                  </Select>
+                  <Input size="sm" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void handleSiteSearch(); }} placeholder="Hledat video…" color="#EEEEEC" bg="black" borderColor="whiteAlpha.400" aria-label="Hledat video" />
+                  <Button size="sm" colorScheme="purple" onClick={() => void handleSiteSearch()} isLoading={isLoadingSource} isDisabled={!searchQuery.trim()}>Hledat</Button>
+                </Flex>
+                {isChaturbateSource && (
+                  <>
+                    <Flex mt="2" gap="2" alignItems="center">
+                      <Text color="gray.300" fontSize="xs" whiteSpace="nowrap">Tag</Text>
+                      <Select
+                        size="xs"
+                        value={chaturbateTag}
+                        onChange={(event) => setChaturbateTag(event.target.value)}
+                        bg="black"
+                        borderColor="whiteAlpha.400"
+                        color="#EEEEEC"
+                        aria-label="Chaturbate tag"
+                      >
+                        {chaturbateTags.map((tag) => (
+                          <option key={tag} value={tag}>#{tag}</option>
+                        ))}
+                      </Select>
+                      <Button size="xs" colorScheme="pink" onClick={() => void handleSourceSubmit()} isLoading={isLoadingSource || isLoadingChaturbateTags}>
+                        Načíst tag
+                      </Button>
+                    </Flex>
+                    <Button mt="2" size="xs" variant="outline" colorScheme="purple" onClick={() => setIsChaturbateEmbedOpen((open) => !open)}>
+                      {isChaturbateEmbedOpen ? 'Skrýt embedded seznam' : 'Zobrazit embedded seznam'}
+                    </Button>
+                    {isChaturbateEmbedOpen && (
+                      <Flex mt="2" minH="180px" p="4" borderWidth="1px" borderColor="whiteAlpha.300" borderRadius="md" bg="blackAlpha.400" direction="column" justifyContent="center" alignItems="center" gap="3" textAlign="center">
+                        <Text color="gray.300" fontSize="sm">
+                          Chaturbate tento affiliate seznam technicky blokuje pro vložení do iframe.
+                        </Text>
+                        <Button as="a" href={CHATURBATE_EMBED_LISTING_URL} target="_blank" rel="noreferrer" size="sm" colorScheme="purple">
+                          Otevřít seznam na Chaturbate
+                        </Button>
+                        <Text color="gray.500" fontSize="xs">
+                          Streamy do gridu dál přidáš z načtených tagů níže.
+                        </Text>
+                      </Flex>
+                    )}
+                  </>
+                )}
+                <Box color="gray.400" fontSize="xs" mt="2">
+                  <Flex gap="1" flexWrap="wrap" alignItems="center">
+                    <Text as="span">Podporované weby:</Text>
+                    {supportedSourceWebsites.map((website) => (
+                      <Button key={website} size="xs" variant="link" color="blue.200" onClick={() => setSourceUrl(website)}>{website}</Button>
+                    ))}
+                  </Flex>
+                </Box>
               </Box>
-            </Box>
-            </>}
-            <Box flex="1" minH={0} overflowY="auto" pr="1">
-              {sourceCategories[selectedCategoryIndex]?.[1].map((channel) => (
-                <ChannelItem key={channel.url} {...channel} />
-              ))}
-            </Box>
-          </Flex>
+
+              <Divider order={3} borderColor="whiteAlpha.300" />
+
+              <Flex order={4} position="relative" flex="1" minH={0} direction="column" overflow="hidden">
+                {sourceError && (
+                  <Text color="red.300" fontSize="xs" px="1" pb="2">
+                    {sourceError}
+                  </Text>
+                )}
+                <Box borderWidth="1px" borderColor="whiteAlpha.200" borderRadius="lg" bg="blackAlpha.300" p="2" mb="0">
+                  <Flex gap="2">
+                    <Select
+                      size="sm"
+                      value={selectedCategoryIndex}
+                      onChange={(event) => setSelectedCategoryIndex(Number(event.target.value))}
+                      bg="purple.500"
+                      color="white"
+                      borderColor="purple.300"
+                      _hover={{ bg: 'purple.600' }}
+                      sx={{ option: { color: '#1A202C', background: 'white' } }}
+                      aria-label="Vybraná kategorie streamů"
+                    >
+                      {sourceCategories.map(([category, sourceChannels], categoryIndex) => (
+                        <option key={category} value={categoryIndex}>{category} ({sourceChannels.length})</option>
+                      ))}
+                    </Select>
+                    <Button size="sm" colorScheme="purple" onClick={() => setIsMoreRoomsOpen((open) => !open)}>
+                      {isMoreRoomsOpen ? 'Skrýt' : 'More Rooms'}
+                    </Button>
+                  </Flex>
+                </Box>
+                {isMoreRoomsOpen && !isFullscreenOpen && <>
+                <IconButton
+                  ref={moreRoomsRestoreRef}
+                  aria-label="Vrátit panel More Rooms"
+                  aria-controls="more-rooms-panel"
+                  aria-expanded={!isMoreRoomsMinimized}
+                  icon={moreRoomsOnLeft ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+                  position="fixed"
+                  {...(moreRoomsOnLeft ? { left: 0 } : { right: 0 })}
+                  top="calc(50vh - 24px)"
+                  zIndex={31}
+                  w="28px"
+                  minW="28px"
+                  h="48px"
+                  colorScheme="purple"
+                  borderRadius={moreRoomsOnLeft ? '0 8px 8px 0' : '8px 0 0 8px'}
+                  visibility={isMoreRoomsMinimized ? 'visible' : 'hidden'}
+                  opacity={isMoreRoomsMinimized ? 1 : 0}
+                  transition="opacity 180ms ease"
+                  onMouseEnter={() => setIsMoreRoomsMinimized(false)}
+                  onClick={() => setIsMoreRoomsMinimized(false)}
+                  sx={{
+                    '--peek-direction': moreRoomsOnLeft ? '1' : '-1',
+                    animation: isMoreRoomsMinimized ? 'moreRoomsPeek 7s ease-in-out infinite' : 'none',
+                    '@keyframes moreRoomsPeek': {
+                      '0%, 82%, 100%': { transform: 'translateX(0)' },
+                      '86%, 94%': { transform: 'translateX(calc(var(--peek-direction) * 7px)) rotate(-5deg)' },
+                      '90%, 97%': { transform: 'translateX(calc(var(--peek-direction) * 3px)) rotate(5deg)' },
+                    },
+                    '&:hover, &:focus-visible': { animation: 'none' },
+                    '@media (prefers-reduced-motion: reduce)': { transition: 'none', animation: 'none' },
+                  }}
+                />
+                <Box
+                  id="more-rooms-panel"
+                  aria-hidden={isMoreRoomsMinimized}
+                  position="fixed"
+                  {...moreRoomsPositionStyles}
+                  w="340px"
+                  zIndex={30}
+                  minW="280px"
+                  maxW="80vw"
+                  minH="180px"
+                  h={`${moreRoomsHeight}px`}
+                  maxH="calc(100vh - 32px)"
+                  overflow="hidden"
+                  display="flex"
+                  flexDirection="column"
+                  overscrollBehavior="contain"
+                  borderWidth="1px"
+                  borderColor="purple.300"
+                  borderRadius="lg"
+                  bg="#111807"
+                  p="2"
+                  boxShadow="0 12px 28px rgba(0,0,0,.65)"
+                  transform={isMoreRoomsMinimized
+                    ? `translateX(${moreRoomsOnLeft ? 'calc(-100% - 48px)' : 'calc(100% + 48px)'})`
+                    : 'translateX(0)'}
+                  visibility={isMoreRoomsMinimized ? 'hidden' : 'visible'}
+                  pointerEvents="auto"
+                  transition={`transform 280ms ease-in-out, visibility 0s ${isMoreRoomsMinimized ? '280ms' : '0s'}`}
+                  onMouseLeave={() => {}}
+                  sx={{ resize: 'both', '@media (prefers-reduced-motion: reduce)': { transition: 'none' } }}
+                >
+                  <Box position="absolute" top="0" left="12px" right="12px" h="8px" cursor="ns-resize" zIndex={5} onPointerDown={(event) => {
+                    event.preventDefault();
+                    resizingMoreRoomsRef.current = { startY: event.clientY, startHeight: moreRoomsHeight, edge: 'top' };
+                  }} />
+                  <Box position="absolute" bottom="0" left="12px" right="12px" h="8px" cursor="ns-resize" zIndex={5} onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.preventDefault();
+                    resizingMoreRoomsRef.current = { startY: event.clientY, startHeight: moreRoomsHeight, edge: 'bottom' };
+                  }} />
+                  <Flex
+                    position="relative"
+                    flexShrink={0}
+                    zIndex={3}
+                    alignItems="center"
+                    justifyContent="space-between"
+                    mb="2"
+                    py="1"
+                    bg="#111807"
+                  >
+                    <Text color="gray.300" fontSize="xs" fontWeight="semibold">More Rooms</Text>
+                    <Flex alignItems="center" gap="1">
+                      <Text color="gray.500" fontSize="10px">Přetáhni do okna</Text>
+                      <IconButton aria-label="Obnovit More Rooms" icon={<RepeatIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => void refreshMoreRooms()} isLoading={isLoadingSource} />
+                      <IconButton aria-label="Přesunout panel More Rooms" icon={<ChevronRightIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => setMoreRoomsPosition((position) => (position + 1) % 4)} />
+                      <IconButton aria-label="Minimalizovat More Rooms" icon={<MinusIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => setIsMoreRoomsMinimized(true)} />
+                    </Flex>
+                  </Flex>
+                  <Box ref={moreRoomsScrollRef} flex="1" minH={0} overflowY="auto" overflowX="hidden" overscrollBehavior="contain" p="2" onScroll={(event) => {
+                    const element = event.currentTarget;
+                    if (element.scrollTop + element.clientHeight >= element.scrollHeight - 160) void loadMoreSearchResults();
+                  }}>
+                    <Box display="grid" gridTemplateColumns="repeat(2, minmax(0, 1fr))" gap="2">
+                      {visibleMoreRooms.map((channel) => (
+                        <MoreRoomCard
+                          key={`more-room-${channel.url}`}
+                          {...channel}
+                          selected={selectedVideo?.url === channel.url}
+                          onSelect={() => {
+                            roomPip.close();
+                            window.dispatchEvent(new CustomEvent('synced:open-fullscreen', { detail: { video: { url: channel.url, name: channel.name, playbackUrl: channel.playbackUrl } } }));
+                            setIsMoreRoomsMinimized(true);
+                          }}
+                        />
+                      ))}
+                    </Box>
+                    {searchSourceUrl && (
+                      <Flex justifyContent="center" mt="3">
+                        <Button
+                          size="sm"
+                          colorScheme="purple"
+                          onClick={() => void loadMoreSearchResults()}
+                          isLoading={isLoadingSource}
+                          isDisabled={isLoadingSource}
+                        >
+                          Načíst další výsledky
+                        </Button>
+                      </Flex>
+                    )}
+                    <Flex alignItems="center" justifyContent="space-between" mt="2" pt="2" borderTopWidth="1px" borderColor="whiteAlpha.200">
+                      <Text color="gray.500" fontSize="10px">{moreRoomsItems.length} načtených streamů</Text>
+                      {searchSourceUrl && <Text color="gray.500" fontSize="10px">stránka {searchPage}</Text>}
+                      <Flex gap="1">
+                        <IconButton
+                          aria-label="Přesunout panel More Rooms"
+                          icon={<ChevronRightIcon />}
+                          size="xs"
+                          colorScheme="purple"
+                          onClick={() => setMoreRoomsPosition((position) => (position + 1) % 4)}
+                        />
+                      </Flex>
+                    </Flex>
+                  </Box>
+                </Box>
+                </>}
+                <Box flex="1" minH={0} overflowY="auto" pr="1">
+                  {sourceCategories[selectedCategoryIndex]?.[1].map((channel) => (
+                    <ChannelItem key={channel.url} {...channel} />
+                  ))}
+                </Box>
+              </Flex>
             </Flex>
           )}
         </Flex>

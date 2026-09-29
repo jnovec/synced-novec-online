@@ -15,7 +15,12 @@ export const resolveChaturbateStreamUrl = async (roomUrl: string): Promise<strin
 
     const data = (await response.json()) as { streamUrl?: string | null };
     if (typeof data.streamUrl !== 'string' || !data.streamUrl) return null;
-    return new URL(data.streamUrl, window.location.origin).toString();
+    const streamUrl = new URL(data.streamUrl, window.location.origin);
+    // ReactPlayer only reloads reliably when the source itself changes. The
+    // endpoint creates a fresh upstream HLS session on every request, so make
+    // that refresh explicit instead of leaving a stalled player on its old URL.
+    streamUrl.searchParams.set('_synced', `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    return streamUrl.toString();
   } catch {
     return null;
   }
