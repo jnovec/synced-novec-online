@@ -132,7 +132,8 @@ export const VideoGrid = () => {
           : { left: '50%', bottom: '16px', transform: 'translateX(-50%)' })}
         maxW="min(90vw, 1100px)"
         maxH={stripVertical ? '80vh' : undefined}
-        overflow="visible"
+        h={stripVertical ? '80vh' : undefined}
+        overflow="hidden"
         zIndex={1001}
         bg="rgba(18,29,42,.98)"
         borderWidth="2px"
