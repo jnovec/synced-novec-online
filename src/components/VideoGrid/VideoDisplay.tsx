@@ -812,6 +812,14 @@ export const VideoDisplay = ({
                           min={0}
                           max={videoDuration}
                           step={0.1}
+                          onKeyDownCapture={(event) => {
+                            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            window.dispatchEvent(new CustomEvent('synced:fullscreen-navigate', {
+                              detail: event.key === 'ArrowLeft' ? -1 : 1,
+                            }));
+                          }}
                           onChange={(value) => {
                             setVideoCurrentTime(value);
                             if (videoReversingRef.current) reversePositionRef.current = value;
