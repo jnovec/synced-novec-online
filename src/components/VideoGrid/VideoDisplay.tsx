@@ -325,6 +325,44 @@ export const VideoDisplay = ({
     setIsUrlDialogOpen(true);
   };
 
+  const toggleReversePlayback = () => {
+    if (videoReversingRef.current) {
+      videoReversingRef.current = false;
+      if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
+      reverseTimerRef.current = null;
+      const resumeTime = Math.max(0, reversePositionRef.current ?? videoCurrentTime);
+      reversePositionRef.current = null;
+      slotPlayerRef.current?.seekTo(resumeTime, 'seconds');
+      setVideoCurrentTime(resumeTime);
+      setVideoPlaying(true);
+      setVideoReversing(false);
+      return;
+    }
+
+    videoReversingRef.current = true;
+    setVideoReversing(true);
+    setVideoPlaying(false);
+    const playerTime = slotPlayerRef.current?.getCurrentTime();
+    const startTime = Number.isFinite(playerTime) && (playerTime ?? 0) > 0
+      ? Number(playerTime)
+      : videoCurrentTime;
+    reversePositionRef.current = Math.max(0, startTime);
+    setVideoCurrentTime(reversePositionRef.current);
+    if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
+    reverseTimerRef.current = window.setInterval(() => {
+      const current = reversePositionRef.current ?? 0;
+      const next = Math.max(0, current - (1 / 30));
+      reversePositionRef.current = next;
+      slotPlayerRef.current?.seekTo(next, 'seconds');
+      setVideoCurrentTime(next);
+      if (next <= 0) {
+        if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
+        reverseTimerRef.current = null;
+        setVideoPlaying(false);
+      }
+    }, 33);
+  };
+
   const placeRemoteVideo = (video: VideoSlot, fromManualDialog = false) => {
     const duplicateSlotIndexes = findDuplicateSlotIndexes(slots, index, video);
     if (!duplicateSlotIndexes.length) {
@@ -760,41 +798,7 @@ export const VideoDisplay = ({
                   >
                     <Text color="purple.200" fontSize="xs" fontWeight="bold" mr="1">VIDEO</Text>
                     <Button size="xs" colorScheme="blue" onClick={() => setVideoPlaying((playing) => !playing)}>{videoPlaying ? 'Pause' : 'Play'}</Button>
-                    <Button size="xs" colorScheme={videoReversing ? 'orange' : 'gray'} onClick={() => setVideoReversing((reversing) => {
-                      if (reversing) {
-                        videoReversingRef.current = false;
-                        if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
-                        reverseTimerRef.current = null;
-                        const resumeTime = reversePositionRef.current ?? videoCurrentTime;
-                        reversePositionRef.current = null;
-                        slotPlayerRef.current?.seekTo(Math.max(0, resumeTime), 'seconds');
-                        setVideoCurrentTime(Math.max(0, resumeTime));
-                        setVideoPlaying(true);
-                        return false;
-                      }
-                      videoReversingRef.current = true;
-                      setVideoPlaying(false);
-                      const playerTime = slotPlayerRef.current?.getCurrentTime();
-                      const startTime = Number.isFinite(playerTime) && (playerTime ?? 0) > 0
-                        ? Number(playerTime)
-                        : videoCurrentTime;
-                      reversePositionRef.current = Math.max(0, startTime);
-                      setVideoCurrentTime(reversePositionRef.current);
-                      if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
-                      reverseTimerRef.current = window.setInterval(() => {
-                        const current = reversePositionRef.current ?? videoCurrentTime;
-                        const next = Math.max(0, current - (1 / 30));
-                        reversePositionRef.current = next;
-                        slotPlayerRef.current?.seekTo(next, 'seconds');
-                        setVideoCurrentTime(next);
-                        if (next <= 0) {
-                          if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
-                          reverseTimerRef.current = null;
-                          setVideoPlaying(false);
-                        }
-                      }, 33);
-                      return true;
-                    })}>Reverse</Button>
+                    <Button size="xs" colorScheme={videoReversing ? 'orange' : 'gray'} onClick={toggleReversePlayback}>Reverse</Button>
                     <Button size="xs" colorScheme={loopEnabled ? 'purple' : 'gray'} onClick={() => { setLoopStart(slotPlayerRef.current?.getCurrentTime() ?? loopStart); setLoopEnabled((enabled) => !enabled); }}>LOOP</Button>
                     <Input aria-label="Délka fullscreen smyčky" value={loopSeconds} onChange={(event) => setLoopSeconds(Math.max(1, Number(event.target.value) || 1))} type="number" min={1} max={3600} size="xs" w="58px" bg="gray.900" color="white" textColor="white" sx={{ WebkitTextFillColor: 'white' }} />
                     <Button size="xs" onClick={() => setLoopStart((start) => Math.max(0, start - 0.5))}>&lt;</Button>
