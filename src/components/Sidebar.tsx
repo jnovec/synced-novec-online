@@ -535,9 +535,9 @@ export const Sidebar = () => {
       flexDir="column"
       alignItems="stretch"
       p="3"
-      w={minimized ? '56px' : { base: '280px', lg: '360px' }}
-      minW={minimized ? '56px' : { base: '240px', lg: '320px' }}
-      maxW={minimized ? '56px' : { base: '320px', lg: '420px' }}
+      w={minimized ? '56px' : '360px'}
+      minW={minimized ? '56px' : '320px'}
+      maxW={minimized ? '56px' : '420px'}
       height="full"
       bg="#090C02"
       gap="3"
