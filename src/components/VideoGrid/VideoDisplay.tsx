@@ -12,7 +12,6 @@ import {
   Badge,
   Box,
   Button,
-  Checkbox,
   Flex,
   GridItem,
   Image,
@@ -58,8 +57,6 @@ interface VideoDisplayProps {
   index: number;
   onOpenFullscreen: (index: number | null) => void;
   isFullscreenActive: boolean;
-  isSelected: boolean;
-  onToggleSelected: (index: number) => void;
   gridRowStart: string;
   gridRowEnd: string;
   gridColumnStart: string;
@@ -70,8 +67,6 @@ export const VideoDisplay = ({
   index,
   onOpenFullscreen,
   isFullscreenActive,
-  isSelected,
-  onToggleSelected,
   gridRowStart,
   gridRowEnd,
   gridColumnStart,
@@ -679,23 +674,6 @@ export const VideoDisplay = ({
         onDrop={handleDrop}
         cursor={slot ? 'grab' : 'pointer'}
       >
-        <Checkbox
-          position="absolute"
-          top="2"
-          left="2"
-          zIndex={30}
-          isChecked={isSelected}
-          isDisabled={!slot}
-          aria-label={`${isSelected ? 'Odznačit' : 'Označit'} okno ${index + 1} pro zachování`}
-          bg="blackAlpha.800"
-          borderRadius="md"
-          p="2"
-          colorScheme="cyan"
-          onClick={(event) => event.stopPropagation()}
-          onChange={() => onToggleSelected(index)}
-        >
-          Zachovat
-        </Checkbox>
         {slot ? (
           <Box ref={mediaRootRef} position="absolute" inset={0} opacity={1} pointerEvents="auto">
             {isDisplay && displayStream ? (
