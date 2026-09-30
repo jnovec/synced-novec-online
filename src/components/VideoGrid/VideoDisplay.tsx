@@ -651,6 +651,13 @@ export const VideoDisplay = ({
         transform="scale(1)"
         transformOrigin="center"
         transition="transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 220ms ease, opacity 160ms ease"
+        sx={isDragOver ? {
+          animation: 'syncedDropPulse 720ms ease-in-out infinite alternate',
+          '@keyframes syncedDropPulse': {
+            from: { transform: 'scale(1.015)', boxShadow: '0 0 18px rgba(34,211,238,.45)' },
+            to: { transform: 'scale(1.045)', boxShadow: '0 0 42px rgba(34,211,238,.9)' },
+          },
+        } : undefined}
         willChange="transform"
         draggable={Boolean(slot)}
         onDragStart={handleSlotDragStart}

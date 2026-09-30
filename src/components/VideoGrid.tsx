@@ -283,6 +283,19 @@ export const VideoGrid = () => {
           key={`slot-switcher-${index}`}
           data-synced-strip-slot={index}
           onClick={() => openSlotFromStrip(index)}
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = 'copy';
+            event.dataTransfer.setData('videoUrl', slot.url);
+            event.dataTransfer.setData('videoName', slot.name);
+            event.dataTransfer.setData('text/uri-list', slot.url);
+            event.dataTransfer.setData('text/plain', slot.url);
+            if (slot.playbackUrl) event.dataTransfer.setData('videoPlaybackUrl', slot.playbackUrl);
+            const thumbnail = slot.thumbnailUrl || channelByUrl.get(slot.url)?.logo;
+            if (thumbnail) event.dataTransfer.setData('videoThumbnailUrl', thumbnail);
+            event.currentTarget.style.opacity = '0.55';
+          }}
+          onDragEnd={(event) => { event.currentTarget.style.opacity = '1'; }}
           variant="unstyled"
           w="180px"
           flexShrink={0}
