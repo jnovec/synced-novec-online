@@ -6,12 +6,13 @@ import { useEffect, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 import { usePagePip } from '@/hooks/usePagePip';
 import { planRandomSlotFill } from '@/lib/randomSlotFill';
+import { getOccupiedGridSlotIndexes } from '@/lib/clearGridSlots';
 import { VideoDisplay } from './VideoGrid/VideoDisplay';
 
 const SLOT_LAYOUT_RELOAD_EVENT = 'synced:slot-layout-reload';
 
 export const VideoGrid = () => {
-  const { slots, gridSize, gridSizeMap, setSlotVideo } = useControlsContext();
+  const { slots, gridSize, gridSizeMap, setSlotVideo, clearSlot } = useControlsContext();
   const { channels } = useChannelsContext();
   const toast = useToast();
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
@@ -158,21 +159,41 @@ export const VideoGrid = () => {
     });
   };
 
+  const clearAllGridSlots = () => {
+    const occupiedIndexes = getOccupiedGridSlotIndexes(slots);
+    if (!occupiedIndexes.length) {
+      toast({ title: 'Mřížka je už prázdná', status: 'info', duration: 1800 });
+      return;
+    }
+    occupiedIndexes.forEach(clearSlot);
+    setFullscreenIndex(null);
+    setSnapshots({});
+    setUnavailableSlots([]);
+    toast({ title: `Uvolněno ${occupiedIndexes.length} oken`, status: 'success', duration: 1800 });
+  };
+
   return (
     <>
       <Box position="relative" w="full" h="full" minH={0}>
-        <Button
-          position="absolute"
-          top="3"
-          right="3"
-          zIndex={20}
-          size="sm"
-          colorScheme="purple"
-          onClick={randomizeEmptySlots}
-          aria-label="Načíst náhodná videa do prázdných slotů"
-        >
-          Načíst náhodně
-        </Button>
+        <Flex position="absolute" top="3" right="3" zIndex={20} gap="2">
+          <Button
+            size="sm"
+            colorScheme="purple"
+            onClick={randomizeEmptySlots}
+            aria-label="Načíst náhodná videa do prázdných slotů"
+          >
+            Načíst náhodně
+          </Button>
+          <Button
+            size="sm"
+            colorScheme="red"
+            variant="solid"
+            onClick={clearAllGridSlots}
+            aria-label="Uvolnit všechna okna mřížky"
+          >
+            Uvolnit vše
+          </Button>
+        </Flex>
       <Grid
         data-synced-video-grid="true"
         templateRows={`repeat(${layout.rows}, minmax(0, 1fr))`}
