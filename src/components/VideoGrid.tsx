@@ -20,7 +20,7 @@ interface ArmedPreviewPlacement {
 }
 
 export const VideoGrid = () => {
-  const { slots, gridSize, gridSizeMap, setSlotVideo, clearSlot } = useControlsContext();
+  const { slots, gridSize, gridSizeMap, setSlotVideo, clearSlot, audioSettings, setSlotMuted, setSlotVolume } = useControlsContext();
   const { channels } = useChannelsContext();
   const toast = useToast();
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
@@ -31,6 +31,12 @@ export const VideoGrid = () => {
   const [hoveredDropSlot, setHoveredDropSlot] = useState<number | null>(null);
   const [isPreviewFalling, setIsPreviewFalling] = useState(false);
   const dropTimerRef = useRef<number | null>(null);
+  const fullscreenAudioSnapshotRef = useRef<typeof audioSettings | null>(null);
+  const previousFullscreenIndexRef = useRef<number | null>(null);
+  const audioSettingsRef = useRef(audioSettings);
+  const audioActionsRef = useRef({ setSlotMuted, setSlotVolume });
+  audioSettingsRef.current = audioSettings;
+  audioActionsRef.current = { setSlotMuted, setSlotVolume };
   const stripRef = useRef<HTMLDivElement>(null);
   const pagePip = usePagePip();
   const effectiveGridSize = gridSizeMap[gridSize] && gridSize <= slots.length ? gridSize : 9;
@@ -40,6 +46,32 @@ export const VideoGrid = () => {
     .map((slot, index) => ({ slot, index }))
     .filter(({ slot, index }) => Boolean(slot) && !unavailableSlots.includes(index));
   const channelByUrl = new Map(Object.values(channels).flat().map((channel) => [channel.url, channel]));
+
+  useEffect(() => {
+    const previousIndex = previousFullscreenIndexRef.current;
+    const actions = audioActionsRef.current;
+    if (fullscreenIndex === null) {
+      const snapshot = fullscreenAudioSnapshotRef.current;
+      if (previousIndex !== null && snapshot) {
+        snapshot.forEach((settings, index) => {
+          actions.setSlotMuted(index, settings.muted);
+          actions.setSlotVolume(index, settings.volume);
+        });
+        fullscreenAudioSnapshotRef.current = null;
+      }
+      previousFullscreenIndexRef.current = null;
+      return;
+    }
+
+    if (previousIndex === null) {
+      fullscreenAudioSnapshotRef.current = audioSettingsRef.current.map((settings) => ({ ...settings }));
+    }
+    audioSettingsRef.current.forEach((_, index) => {
+      actions.setSlotMuted(index, index !== fullscreenIndex);
+    });
+    actions.setSlotVolume(fullscreenIndex, 0.25);
+    previousFullscreenIndexRef.current = fullscreenIndex;
+  }, [fullscreenIndex]);
 
   useEffect(() => {
     if (fullscreenIndex === null) return;
