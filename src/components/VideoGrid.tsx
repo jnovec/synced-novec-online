@@ -5,7 +5,7 @@ import { RepeatIcon } from '@chakra-ui/icons';
 import { useEffect, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 import { usePagePip } from '@/hooks/usePagePip';
-import { planRandomSlotFill } from '@/lib/randomSlotFill';
+import { planRandomSlotReplacement } from '@/lib/randomSlotReplacement';
 import { getOccupiedGridSlotIndexes } from '@/lib/clearGridSlots';
 import { VideoDisplay } from './VideoGrid/VideoDisplay';
 
@@ -15,6 +15,7 @@ export const VideoGrid = () => {
   const { slots, gridSize, gridSizeMap, setSlotVideo, clearSlot } = useControlsContext();
   const { channels } = useChannelsContext();
   const toast = useToast();
+  const [selectedSlots, setSelectedSlots] = useState<number[]>([]);
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
   const [stripVertical, setStripVertical] = useState(false);
   const [snapshots, setSnapshots] = useState<Record<number, string>>({});
@@ -134,29 +135,19 @@ export const VideoGrid = () => {
     };
   }, []);
 
-  const randomizeEmptySlots = () => {
-    const candidates = Object.values(channels).flat().map(({ name, url, logo, playbackUrl }) => ({
-      name,
-      url,
-      thumbnailUrl: logo,
-      playbackUrl,
-    }));
-    const assignments = planRandomSlotFill(slots, candidates, visibleSlotCount);
+  const randomizeUnselectedSlots = () => {
+    const candidates = Object.values(channels).flat().map(({ name, url, logo, playbackUrl }) => ({ name, url, thumbnailUrl: logo, playbackUrl }));
+    const assignments = planRandomSlotReplacement(slots, candidates, selectedSlots, visibleSlotCount);
     if (!assignments.length) {
-      toast({
-        title: 'Není co náhodně načíst',
-        description: candidates.length ? 'Všechny viditelné sloty už jsou obsazené.' : 'Nejdřív načti videa ze zdroje.',
-        status: 'info',
-        duration: 2600,
-      });
+      toast({ title: 'Není co vyměnit', description: candidates.length ? 'Všechna dostupná videa už jsou v mřížce nebo jsou všechna okna označená.' : 'Nejdřív načti videa ze zdroje.', status: 'info', duration: 2600 });
       return;
     }
     assignments.forEach(({ index, video }) => setSlotVideo(index, video));
-    toast({
-      title: `Náhodně načteno ${assignments.length} videí`,
-      status: 'success',
-      duration: 1800,
-    });
+    toast({ title: `Vyměněno ${assignments.length} oken`, status: 'success', duration: 1800 });
+  };
+
+  const toggleSelectedSlot = (index: number) => {
+    setSelectedSlots((current) => current.includes(index) ? current.filter((selected) => selected !== index) : [...current, index]);
   };
 
   const clearAllGridSlots = () => {
@@ -179,10 +170,10 @@ export const VideoGrid = () => {
           <Button
             size="sm"
             colorScheme="purple"
-            onClick={randomizeEmptySlots}
-            aria-label="Načíst náhodná videa do prázdných slotů"
+            onClick={randomizeUnselectedSlots}
+            aria-label="Náhodně vyměnit neoznačená okna"
           >
-            Načíst náhodně
+            Vyměnit neoznačená
           </Button>
           <Button
             size="sm"
@@ -211,6 +202,8 @@ export const VideoGrid = () => {
               index={i}
               onOpenFullscreen={(index) => setFullscreenIndex(index)}
               isFullscreenActive={fullscreenIndex === i}
+              isSelected={selectedSlots.includes(i)}
+              onToggleSelected={toggleSelectedSlot}
               gridRowStart={placement.rowStart}
               gridRowEnd={placement.rowEnd}
               gridColumnStart={placement.colStart}
