@@ -27,6 +27,27 @@ export const VideoGrid = () => {
   const channelByUrl = new Map(Object.values(channels).flat().map((channel) => [channel.url, channel]));
 
   useEffect(() => {
+    if (fullscreenIndex === null) return;
+
+    const handleFullscreenArrowKeys = (event: KeyboardEvent) => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      const target = event.target as HTMLElement | null;
+      if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
+      const indexes = loadedSlots.map(({ index }) => index);
+      if (indexes.length < 2) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const position = indexes.indexOf(fullscreenIndex);
+      if (position < 0) return;
+      const direction = event.key === 'ArrowLeft' ? -1 : 1;
+      setFullscreenIndex(indexes[(position + direction + indexes.length) % indexes.length]);
+    };
+
+    window.addEventListener('keydown', handleFullscreenArrowKeys, true);
+    return () => window.removeEventListener('keydown', handleFullscreenArrowKeys, true);
+  }, [fullscreenIndex, loadedSlots]);
+
+  useEffect(() => {
     window.dispatchEvent(new CustomEvent('synced-fullscreen-change', { detail: { active: fullscreenIndex !== null } }));
     if (fullscreenIndex !== null) {
       window.requestAnimationFrame(() => {

@@ -159,18 +159,6 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleFullscreenNavigation = (event: Event) => {
-      const direction = (event as CustomEvent<number>).detail;
-      if (direction === -1 || direction === 1) goRef.current(direction);
-    };
-
-    window.addEventListener('synced:fullscreen-navigate', handleFullscreenNavigation);
-    return () => window.removeEventListener('synced:fullscreen-navigate', handleFullscreenNavigation);
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target?.matches('input, textarea, select, [contenteditable="true"]')) return;
