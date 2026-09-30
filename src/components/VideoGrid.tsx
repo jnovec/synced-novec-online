@@ -1,17 +1,19 @@
 import { useControlsContext } from '@/contexts/useControls';
 import { useChannelsContext } from '@/contexts/useChannels';
-import { Box, Button, Flex, Grid, Image, Link, Text, IconButton } from '@chakra-ui/react';
+import { Box, Button, Flex, Grid, Image, Link, Text, IconButton, useToast } from '@chakra-ui/react';
 import { RepeatIcon } from '@chakra-ui/icons';
 import { useEffect, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 import { usePagePip } from '@/hooks/usePagePip';
+import { planRandomSlotFill } from '@/lib/randomSlotFill';
 import { VideoDisplay } from './VideoGrid/VideoDisplay';
 
 const SLOT_LAYOUT_RELOAD_EVENT = 'synced:slot-layout-reload';
 
 export const VideoGrid = () => {
-  const { slots, gridSize, gridSizeMap } = useControlsContext();
+  const { slots, gridSize, gridSizeMap, setSlotVideo } = useControlsContext();
   const { channels } = useChannelsContext();
+  const toast = useToast();
   const [fullscreenIndex, setFullscreenIndex] = useState<number | null>(null);
   const [stripVertical, setStripVertical] = useState(false);
   const [snapshots, setSnapshots] = useState<Record<number, string>>({});
@@ -131,8 +133,46 @@ export const VideoGrid = () => {
     };
   }, []);
 
+  const randomizeEmptySlots = () => {
+    const candidates = Object.values(channels).flat().map(({ name, url, logo, playbackUrl }) => ({
+      name,
+      url,
+      thumbnailUrl: logo,
+      playbackUrl,
+    }));
+    const assignments = planRandomSlotFill(slots, candidates, visibleSlotCount);
+    if (!assignments.length) {
+      toast({
+        title: 'Není co náhodně načíst',
+        description: candidates.length ? 'Všechny viditelné sloty už jsou obsazené.' : 'Nejdřív načti videa ze zdroje.',
+        status: 'info',
+        duration: 2600,
+      });
+      return;
+    }
+    assignments.forEach(({ index, video }) => setSlotVideo(index, video));
+    toast({
+      title: `Náhodně načteno ${assignments.length} videí`,
+      status: 'success',
+      duration: 1800,
+    });
+  };
+
   return (
     <>
+      <Box position="relative" w="full" h="full" minH={0}>
+        <Button
+          position="absolute"
+          top="3"
+          right="3"
+          zIndex={20}
+          size="sm"
+          colorScheme="purple"
+          onClick={randomizeEmptySlots}
+          aria-label="Načíst náhodná videa do prázdných slotů"
+        >
+          Načíst náhodně
+        </Button>
       <Grid
         data-synced-video-grid="true"
         templateRows={`repeat(${layout.rows}, minmax(0, 1fr))`}
@@ -158,6 +198,7 @@ export const VideoGrid = () => {
           );
         })}
       </Grid>
+      </Box>
       {fullscreenIndex !== null && loadedSlots.length > 0 && <Box
         position="fixed"
         {...(stripVertical
