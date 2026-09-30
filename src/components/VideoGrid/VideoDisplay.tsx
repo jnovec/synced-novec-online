@@ -61,6 +61,7 @@ interface VideoDisplayProps {
   gridRowEnd: string;
   gridColumnStart: string;
   gridColumnEnd: string;
+  isClickDropTarget?: boolean;
 }
 
 export const VideoDisplay = ({
@@ -71,6 +72,7 @@ export const VideoDisplay = ({
   gridRowEnd,
   gridColumnStart,
   gridColumnEnd,
+  isClickDropTarget = false,
 }: VideoDisplayProps) => {
   const toast = useToast();
   const {
@@ -621,11 +623,11 @@ export const VideoDisplay = ({
         gridRowEnd={gridRowEnd}
         gridColumnStart={gridColumnStart}
         gridColumnEnd={gridColumnEnd}
-        borderWidth={isDuplicateHighlighted || isSlotDragOver ? '3px' : '1px'}
+        borderWidth={isDuplicateHighlighted || isSlotDragOver || isClickDropTarget ? '3px' : '1px'}
         borderColor={
           isDuplicateHighlighted
             ? 'red.500'
-            : isSlotDragOver
+            : isClickDropTarget || isSlotDragOver
               ? 'cyan.300'
               : isDragOver
                 ? 'red.300'
@@ -637,21 +639,21 @@ export const VideoDisplay = ({
         pos="relative"
         position={isFullscreenActive ? 'fixed' : 'relative'}
         inset={isFullscreenActive ? '0' : undefined}
-        zIndex={isFullscreenActive ? 1000 : (isDuplicateHighlighted || isSlotDragOver ? 12 : 0)}
+        zIndex={isFullscreenActive ? 1000 : (isDuplicateHighlighted || isSlotDragOver || isClickDropTarget ? 12 : 0)}
         borderRadius={isFullscreenActive ? '0' : 'lg'}
         bg="black"
         opacity={isSlotDragging ? 0.55 : 1}
         boxShadow={
           isDuplicateHighlighted
             ? '0 0 0 2px rgba(229,62,62,.8), 0 0 34px rgba(229,62,62,.75)'
-            : isSlotDragOver
+            : isClickDropTarget || isSlotDragOver
               ? '0 0 0 2px rgba(103,232,249,.65), 0 0 30px rgba(34,211,238,.5)'
               : undefined
         }
         transform="scale(1)"
         transformOrigin="center"
         transition="transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease, border-color 220ms ease, opacity 160ms ease"
-        sx={isDragOver ? {
+        sx={isDragOver || isClickDropTarget ? {
           animation: 'syncedDropPulse 720ms ease-in-out infinite alternate',
           '@keyframes syncedDropPulse': {
             from: { transform: 'scale(1.015)', boxShadow: '0 0 18px rgba(34,211,238,.45)' },

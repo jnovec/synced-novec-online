@@ -8,7 +8,7 @@ import { findFirstEmptyVisibleSlot } from '@/lib/slotSelection';
 import { resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { AddIcon, ChevronLeftIcon, ChevronRightIcon, MinusIcon, RepeatIcon } from '@chakra-ui/icons';
 import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, Input, Select, Spinner, Text, useToast } from '@chakra-ui/react';
-import { DragEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { DragEvent, MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 
 const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com', 'cam4.com', 'myfreecams.com', 'youtube.com', 'pornhub.com', 'xvideos.com', 'youporn.com'];
@@ -35,7 +35,7 @@ interface MoreRoomCardProps {
   logo?: string;
   playbackUrl?: string;
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (event: MouseEvent<HTMLDivElement>) => void;
 }
 
 const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSelect }: MoreRoomCardProps) => {
@@ -46,21 +46,8 @@ const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSele
     const timer = window.setTimeout(() => setPlayPreview(true), 250);
     return () => window.clearTimeout(timer);
   }, [hovered]);
-  const handleDragStart = (event: DragEvent<HTMLDivElement>) => {
-    event.dataTransfer.effectAllowed = 'copy';
-    event.dataTransfer.setData('videoUrl', url);
-    event.dataTransfer.setData('videoName', name);
-    event.dataTransfer.setData('text/uri-list', url);
-    event.dataTransfer.setData('text/plain', url);
-    if (playbackUrl) event.dataTransfer.setData('videoPlaybackUrl', playbackUrl);
-    if (logo) event.dataTransfer.setData('videoThumbnailUrl', logo);
-  };
-
   return (
     <Box
-      draggable
-      onDragStart={handleDragStart}
-      onDragEnd={() => setHovered(false)}
       onClick={onSelect}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -808,7 +795,7 @@ export const Sidebar = () => {
                   >
                     <Text color="gray.300" fontSize="xs" fontWeight="semibold">More Rooms</Text>
                     <Flex alignItems="center" gap="1">
-                      <Text color="gray.500" fontSize="10px">Přetáhni do okna</Text>
+                      <Text color="gray.500" fontSize="10px">Klikni na náhled, pak klikni do okna · Esc zruší</Text>
                       <IconButton aria-label="Obnovit More Rooms" icon={<RepeatIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => void refreshMoreRooms()} isLoading={isLoadingSource} />
                       <IconButton aria-label="Přesunout panel More Rooms" icon={<ChevronRightIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => setMoreRoomsPosition((position) => (position + 1) % 4)} />
                       <IconButton aria-label="Minimalizovat More Rooms" icon={<MinusIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => setIsMoreRoomsMinimized(true)} />
@@ -824,10 +811,18 @@ export const Sidebar = () => {
                           key={`more-room-${channel.url}`}
                           {...channel}
                           selected={selectedVideo?.url === channel.url}
-                          onSelect={() => {
+                          onSelect={(event) => {
                             setSelectedVideo({ url: channel.url, name: channel.name, ...(channel.playbackUrl ? { playbackUrl: channel.playbackUrl } : {}) });
                             setIsMoreRoomsOpen(true);
                             setIsMoreRoomsMinimized(false);
+                            window.dispatchEvent(new CustomEvent('synced:arm-preview-placement', {
+                              detail: {
+                                video: { name: channel.name, url: channel.url, ...(channel.playbackUrl ? { playbackUrl: channel.playbackUrl } : {}) },
+                                thumbnailUrl: channel.logo,
+                                x: event.clientX,
+                                y: event.clientY,
+                              },
+                            }));
                           }}
                         />
                       ))}

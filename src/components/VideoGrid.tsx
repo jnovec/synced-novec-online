@@ -2,14 +2,22 @@ import { useControlsContext } from '@/contexts/useControls';
 import { useChannelsContext } from '@/contexts/useChannels';
 import { Box, Button, Flex, Grid, Image, Link, Text, IconButton, useToast } from '@chakra-ui/react';
 import { RepeatIcon } from '@chakra-ui/icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, MouseEvent } from 'react';
 import ReactPlayer from 'react-player';
 import { usePagePip } from '@/hooks/usePagePip';
 import { planRandomSlotFill } from '@/lib/randomSlotFill';
 import { getOccupiedGridSlotIndexes } from '@/lib/clearGridSlots';
+import type { VideoSlot } from '@/lib/displayMedia';
 import { VideoDisplay } from './VideoGrid/VideoDisplay';
 
 const SLOT_LAYOUT_RELOAD_EVENT = 'synced:slot-layout-reload';
+const ARM_PREVIEW_PLACEMENT_EVENT = 'synced:arm-preview-placement';
+interface ArmedPreviewPlacement {
+  video: VideoSlot;
+  thumbnailUrl?: string;
+  x: number;
+  y: number;
+}
 
 export const VideoGrid = () => {
   const { slots, gridSize, gridSizeMap, setSlotVideo, clearSlot } = useControlsContext();
@@ -19,6 +27,10 @@ export const VideoGrid = () => {
   const [stripVertical, setStripVertical] = useState(false);
   const [snapshots, setSnapshots] = useState<Record<number, string>>({});
   const [unavailableSlots, setUnavailableSlots] = useState<number[]>([]);
+  const [armedPreview, setArmedPreview] = useState<ArmedPreviewPlacement | null>(null);
+  const [hoveredDropSlot, setHoveredDropSlot] = useState<number | null>(null);
+  const [isPreviewFalling, setIsPreviewFalling] = useState(false);
+  const dropTimerRef = useRef<number | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const pagePip = usePagePip();
   const effectiveGridSize = gridSizeMap[gridSize] && gridSize <= slots.length ? gridSize : 9;
@@ -93,6 +105,63 @@ export const VideoGrid = () => {
         setUnavailableSlots((current) => current.includes(index) ? current : [...current, index]);
       }
     }, 8000);
+  };
+
+  useEffect(() => {
+    const handleArmPreview = (event: Event) => {
+      const detail = (event as CustomEvent<ArmedPreviewPlacement>).detail;
+      if (!detail?.video?.url || !detail.video.name) return;
+      if (dropTimerRef.current !== null) window.clearTimeout(dropTimerRef.current);
+      setArmedPreview(detail);
+      setHoveredDropSlot(null);
+      setIsPreviewFalling(false);
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+      setArmedPreview((current) => current ? { ...current, x: event.clientX, y: event.clientY } : current);
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-synced-slot-index]');
+      const index = target ? Number(target.dataset.syncedSlotIndex) : null;
+      setHoveredDropSlot(Number.isInteger(index) ? index : null);
+    };
+    const handleCancel = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (dropTimerRef.current !== null) window.clearTimeout(dropTimerRef.current);
+      dropTimerRef.current = null;
+      setArmedPreview(null);
+      setHoveredDropSlot(null);
+      setIsPreviewFalling(false);
+    };
+    window.addEventListener(ARM_PREVIEW_PLACEMENT_EVENT, handleArmPreview);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('keydown', handleCancel);
+    return () => {
+      window.removeEventListener(ARM_PREVIEW_PLACEMENT_EVENT, handleArmPreview);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('keydown', handleCancel);
+      if (dropTimerRef.current !== null) window.clearTimeout(dropTimerRef.current);
+    };
+  }, []);
+
+  const handleGridClickCapture = (event: MouseEvent<HTMLDivElement>) => {
+    if (!armedPreview || isPreviewFalling) return;
+    const slotElement = (event.target as HTMLElement).closest<HTMLElement>('[data-synced-slot-index]');
+    if (!slotElement || !event.currentTarget.contains(slotElement)) return;
+    const targetIndex = Number(slotElement.dataset.syncedSlotIndex);
+    if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= visibleSlotCount) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    setHoveredDropSlot(targetIndex);
+    setIsPreviewFalling(true);
+    dropTimerRef.current = window.setTimeout(() => {
+      setSlotVideo(targetIndex, {
+        ...armedPreview.video,
+        ...(armedPreview.thumbnailUrl ? { thumbnailUrl: armedPreview.thumbnailUrl } : {}),
+      });
+      setArmedPreview(null);
+      setHoveredDropSlot(null);
+      setIsPreviewFalling(false);
+      dropTimerRef.current = null;
+    }, 260);
   };
 
   useEffect(() => {
@@ -202,6 +271,7 @@ export const VideoGrid = () => {
         h="full"
         minH={0}
         gap="2"
+        onClickCapture={handleGridClickCapture}
       >
         {Array.from({ length: visibleSlotCount }).map((_, i) => {
           const placement = layout.elements[i];
@@ -215,10 +285,37 @@ export const VideoGrid = () => {
               gridRowEnd={placement.rowEnd}
               gridColumnStart={placement.colStart}
               gridColumnEnd={placement.colEnd}
+              isClickDropTarget={armedPreview !== null && hoveredDropSlot === i}
             />
           );
         })}
       </Grid>
+      {armedPreview && (
+        <Box
+          aria-hidden="true"
+          position="fixed"
+          left={`${armedPreview.x}px`}
+          top={`${armedPreview.y}px`}
+          w="176px"
+          h="112px"
+          zIndex={3000}
+          pointerEvents="none"
+          overflow="hidden"
+          border="2px solid"
+          borderColor="cyan.200"
+          borderRadius="lg"
+          bg="#080b10"
+          boxShadow="0 0 0 3px rgba(34,211,238,.2), 0 12px 35px rgba(0,0,0,.65)"
+          transform={isPreviewFalling ? 'translate(-50%, -30%) rotate(12deg) scale(.18)' : 'translate(-50%, -50%) rotate(-3deg) scale(1)'}
+          opacity={isPreviewFalling ? 0 : 0.92}
+          transition="transform 260ms cubic-bezier(.2,.8,.3,1), opacity 260ms ease"
+        >
+          {armedPreview.thumbnailUrl ? <Image src={armedPreview.thumbnailUrl} alt="" w="full" h="full" objectFit="cover" /> : <Flex w="full" h="full" align="center" justify="center" bg="gray.900"><Text color="cyan.100" fontSize="xs">LIVE PREVIEW</Text></Flex>}
+          <Text position="absolute" left="0" right="0" bottom="0" px="2" py="1" color="white" fontSize="xs" fontWeight="bold" noOfLines={1} bg="blackAlpha.800">
+            {isPreviewFalling ? 'Pouštím do okna…' : `${armedPreview.video.name} · klikni do gridu`}
+          </Text>
+        </Box>
+      )}
       </Box>
       {fullscreenIndex !== null && loadedSlots.length > 0 && <Box
         position="fixed"
