@@ -162,6 +162,14 @@ export const Sidebar = () => {
   const sourceCategories = useMemo(() => Object.entries(channels), [channels]);
   const moreRoomsItems = sourceCategories[selectedCategoryIndex]?.[1] ?? [];
   const visibleMoreRooms = moreRoomsItems;
+  const selectedSourceName = sourceCategories[selectedCategoryIndex]?.[0] ?? 'More Rooms';
+  const activateSourceCategory = (category: string) => {
+    const existingIndex = sourceCategories.findIndex(([name]) => name === category);
+    setSelectedCategoryIndex(existingIndex >= 0 ? existingIndex : sourceCategories.length);
+    setIsMoreRoomsOpen(true);
+    setIsMoreRoomsMinimized(false);
+    window.requestAnimationFrame(() => moreRoomsScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }));
+  };
   const moreRoomsOnLeft = moreRoomsPosition === 0 || moreRoomsPosition === 3;
   useEffect(() => {
     const handleFullscreen = (event: Event) => setIsFullscreenOpen(Boolean((event as CustomEvent<{ active?: boolean }>).detail?.active));
@@ -455,6 +463,7 @@ export const Sidebar = () => {
     if (!sourceUrl.trim()) return;
     try {
       const result = await loadSource(sourceUrl, isChaturbateSource ? chaturbateTag : '');
+      activateSourceCategory(result.category);
       if (result.tags.length) {
         setChaturbateTags((current) => Array.from(new Set([...defaultChaturbateTags, ...current, ...result.tags])).sort());
       }
@@ -485,6 +494,7 @@ export const Sidebar = () => {
     setSearchPage(1);
     try {
       const result = await loadSource(searchUrl);
+      activateSourceCategory(result.category);
       toast({ title: `${result.category}: ${result.count} výsledků`, status: 'success', duration: 3000, isClosable: true });
     } catch (error) {
       toast({ title: 'Vyhledávání se nepodařilo načíst', description: error instanceof Error ? error.message : 'Neznámá chyba', status: 'error', duration: 4500, isClosable: true });
@@ -793,7 +803,7 @@ export const Sidebar = () => {
                     py="1"
                     bg="#111807"
                   >
-                    <Text color="gray.300" fontSize="xs" fontWeight="semibold">More Rooms</Text>
+                    <Text flex="1" minW={0} color="gray.300" fontSize="xs" fontWeight="semibold" noOfLines={1} title={selectedSourceName}>{selectedSourceName}</Text>
                     <Flex alignItems="center" gap="1">
                       <Text color="gray.500" fontSize="10px">Klikni na náhled, pak klikni do okna · Esc zruší</Text>
                       <IconButton aria-label="Obnovit More Rooms" icon={<RepeatIcon />} size="xs" variant="ghost" color="gray.300" onClick={() => void refreshMoreRooms()} isLoading={isLoadingSource} />
