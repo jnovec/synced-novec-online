@@ -342,10 +342,7 @@ export const VideoDisplay = ({
     videoReversingRef.current = true;
     setVideoReversing(true);
     setVideoPlaying(false);
-    const playerTime = slotPlayerRef.current?.getCurrentTime();
-    const startTime = Number.isFinite(playerTime) && (playerTime ?? 0) > 0
-      ? Number(playerTime)
-      : videoCurrentTime;
+    const startTime = videoCurrentTime;
     reversePositionRef.current = Math.max(0, startTime);
     setVideoCurrentTime(reversePositionRef.current);
     if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);

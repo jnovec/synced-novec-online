@@ -8,6 +8,19 @@ const ts = createRequire(import.meta.url)('typescript');
 const videoDisplayPath = fileURLToPath(new URL('../components/VideoGrid/VideoDisplay.tsx', import.meta.url));
 const videoDisplay = ts.createSourceFile(videoDisplayPath, readFileSync(videoDisplayPath, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 
+test('Reverse starts from the position currently displayed by the slider', () => {
+  const startTimes = [];
+  const visit = (node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === 'startTime') {
+      startTimes.push(node.initializer?.getText(videoDisplay));
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(videoDisplay);
+
+  assert.deepEqual(startTimes, ['videoCurrentTime'], 'the player clock can be ahead of the slider between onProgress callbacks');
+});
+
 test('Reverse toggle performs seek and timer work outside a React state updater', () => {
   const updaterCalls = [];
   const visit = (node) => {
