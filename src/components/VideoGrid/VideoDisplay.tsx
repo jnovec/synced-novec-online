@@ -690,12 +690,16 @@ export const VideoDisplay = ({
           bg="blackAlpha.800"
           borderRadius="md"
           p="2"
+          title="Zachovat toto okno při náhodné výměně"
+          color="white"
           colorScheme="cyan"
+          sx={{
+            '.chakra-checkbox__control': { bg: 'blackAlpha.900', borderColor: 'whiteAlpha.800' },
+            '.chakra-checkbox__control[data-checked]': { bg: 'cyan.500', borderColor: 'cyan.200' },
+          }}
           onClick={(event) => event.stopPropagation()}
           onChange={() => onToggleSelected(index)}
-        >
-          Zachovat
-        </Checkbox>
+        />
         {slot ? (
           <Box ref={mediaRootRef} position="absolute" inset={0} opacity={1} pointerEvents="auto">
             {isDisplay && displayStream ? (
