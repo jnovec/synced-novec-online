@@ -60,6 +60,7 @@ const MoreRoomCard = ({ name, location, url, logo, playbackUrl, selected, onSele
     <Box
       draggable
       onDragStart={handleDragStart}
+      onDragEnd={() => setHovered(false)}
       onClick={onSelect}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -825,8 +826,7 @@ export const Sidebar = () => {
                           selected={selectedVideo?.url === channel.url}
                           onSelect={() => {
                             roomPip.close();
-                            window.dispatchEvent(new CustomEvent('synced:open-fullscreen', { detail: { video: { url: channel.url, name: channel.name, playbackUrl: channel.playbackUrl } } }));
-                            setIsMoreRoomsMinimized(true);
+                            setSelectedVideo({ url: channel.url, name: channel.name, ...(channel.playbackUrl ? { playbackUrl: channel.playbackUrl } : {}) });
                           }}
                         />
                       ))}
