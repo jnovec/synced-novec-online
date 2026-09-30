@@ -825,8 +825,9 @@ export const Sidebar = () => {
                           {...channel}
                           selected={selectedVideo?.url === channel.url}
                           onSelect={() => {
-                            roomPip.close();
                             setSelectedVideo({ url: channel.url, name: channel.name, ...(channel.playbackUrl ? { playbackUrl: channel.playbackUrl } : {}) });
+                            setIsMoreRoomsOpen(true);
+                            setIsMoreRoomsMinimized(false);
                           }}
                         />
                       ))}
