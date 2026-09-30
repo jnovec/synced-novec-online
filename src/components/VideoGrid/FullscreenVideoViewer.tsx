@@ -165,17 +165,20 @@ export const FullscreenVideoViewer = ({ isOpen, initialIndex, slots, onClose }: 
 
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
+        event.stopPropagation();
         goRef.current(-1);
       }
 
       if (event.key === 'ArrowRight') {
         event.preventDefault();
+        event.stopPropagation();
         goRef.current(1);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    // Capture before the focused video/player can consume arrows as seek keys.
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen]);
 
   useEffect(() => {
