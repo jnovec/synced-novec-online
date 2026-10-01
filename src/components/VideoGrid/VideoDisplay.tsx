@@ -34,7 +34,7 @@ import {
   Text,
   useToast,
 } from '@chakra-ui/react';
-import { DragEvent, useEffect, useRef, useState } from 'react';
+import { DragEvent, MouseEvent, useEffect, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 import { DisplayMediaPlayer } from './DisplayMediaPlayer';
 
@@ -99,6 +99,9 @@ export const VideoDisplay = ({
   const [loading, setLoading] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [streamStatus, setStreamStatus] = useState<'loading' | 'live' | 'error'>('loading');
+  const [isRecordingRequest, setIsRecordingRequest] = useState(false);
+  const [recordingJobId, setRecordingJobId] = useState<string | null>(null);
+  const recordingSourceRef = useRef<string | null>(slot?.url ?? null);
   const [reloadKey, setReloadKey] = useState(0);
   const slotKeyRef = useRef<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -160,6 +163,12 @@ export const VideoDisplay = ({
     setVideoDuration(0);
     setVideoCurrentTime(0);
   }, [slot?.url, slot?.playbackUrl]);
+
+  useEffect(() => {
+    recordingSourceRef.current = slot?.url ?? null;
+    setIsRecordingRequest(false);
+    setRecordingJobId(null);
+  }, [slot?.url]);
 
   useEffect(() => {
     videoReversingRef.current = videoReversing;
@@ -325,6 +334,47 @@ export const VideoDisplay = ({
 
     setManualUrl(selectedVideo?.url ?? '');
     setIsUrlDialogOpen(true);
+  };
+
+  const handleRecordClick = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (!slot?.url || isDisplay || isRecordingRequest || recordingJobId) return;
+
+    const sourceUrl = slot.url;
+    recordingSourceRef.current = sourceUrl;
+    setIsRecordingRequest(true);
+    try {
+      const response = await fetch('/api/stream-record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: sourceUrl }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || result?.ok !== true || typeof result.jobId !== 'string') {
+        throw new Error('stream_record_start_failed');
+      }
+
+      if (recordingSourceRef.current === sourceUrl) setRecordingJobId(result.jobId);
+      toast({
+        title: 'Stahování spuštěno',
+        description: `Úloha ${result.jobId}`,
+        status: 'success',
+        duration: 6000,
+        isClosable: true,
+      });
+    } catch {
+      if (recordingSourceRef.current === sourceUrl) {
+        toast({
+          title: 'Stahování se nepodařilo spustit',
+          description: 'Zkus to prosím znovu za chvíli.',
+          status: 'error',
+          duration: 6000,
+          isClosable: true,
+        });
+      }
+    } finally {
+      if (recordingSourceRef.current === sourceUrl) setIsRecordingRequest(false);
+    }
   };
 
   const toggleReversePlayback = () => {
@@ -871,6 +921,23 @@ export const VideoDisplay = ({
               <Badge colorScheme={isDisplay ? 'purple' : 'green'} fontSize="0.65rem">
                 {isDisplay ? 'APP' : `SLOT ${index + 1}`}
               </Badge>
+              {slot?.url && !isDisplay && (
+                <Button
+                  size="xs"
+                  minW="38px"
+                  h="20px"
+                  px="2"
+                  colorScheme="red"
+                  fontWeight="bold"
+                  isLoading={isRecordingRequest}
+                  isDisabled={Boolean(recordingJobId)}
+                  title={recordingJobId ? `Stahování spuštěno: ${recordingJobId}` : 'Stáhnout tento stream'}
+                  aria-label={`REC — stáhnout stream ve slotu ${index + 1}`}
+                  onClick={handleRecordClick}
+                >
+                  {recordingJobId ? 'REC ✓' : 'REC'}
+                </Button>
+              )}
               <Button
                 size="xs"
                 h="20px"
