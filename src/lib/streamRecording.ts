@@ -1,5 +1,10 @@
 import { normalizeSourceUrl } from './sourceDiscovery.ts';
 
+export const STREAM_RECORDING_DOWNLOAD_DIRECTORY = '~/n8n-stream-downloads';
+
+export const formatStreamRecordingLocationMessage = (jobId: string): string =>
+  `Soubory se ukládají do ${STREAM_RECORDING_DOWNLOAD_DIRECTORY}/. Po dokončení ve Finderu vyhledej ID úlohy: ${jobId}.`;
+
 export interface StreamRecordingPayload {
   action: 'start';
   url: string;

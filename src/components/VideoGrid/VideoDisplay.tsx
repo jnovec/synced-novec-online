@@ -7,6 +7,7 @@ import { isDisplaySlot } from '@/lib/displayMedia';
 import type { VideoSlot } from '@/lib/displayMedia';
 import { findVibrationGamepad, vibrateGamepad } from '@/lib/gamepadVibration';
 import { normalizeRemoteVideo, resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
+import { formatStreamRecordingLocationMessage } from '@/lib/streamRecording';
 import { CloseIcon, RepeatIcon } from '@chakra-ui/icons';
 import {
   Badge,
@@ -357,9 +358,9 @@ export const VideoDisplay = ({
       if (recordingSourceRef.current === sourceUrl) setRecordingJobId(result.jobId);
       toast({
         title: 'Stahování spuštěno',
-        description: `Úloha ${result.jobId}`,
+        description: formatStreamRecordingLocationMessage(result.jobId),
         status: 'success',
-        duration: 6000,
+        duration: null,
         isClosable: true,
       });
     } catch {
@@ -931,7 +932,7 @@ export const VideoDisplay = ({
                   fontWeight="bold"
                   isLoading={isRecordingRequest}
                   isDisabled={Boolean(recordingJobId)}
-                  title={recordingJobId ? `Stahování spuštěno: ${recordingJobId}` : 'Stáhnout tento stream'}
+                  title={recordingJobId ? formatStreamRecordingLocationMessage(recordingJobId) : 'Stáhnout tento stream'}
                   aria-label={`REC — stáhnout stream ve slotu ${index + 1}`}
                   onClick={handleRecordClick}
                 >

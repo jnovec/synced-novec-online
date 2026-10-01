@@ -35,3 +35,12 @@ test('allows only the Synced origin and localhost development origins', async ()
   assert.equal(isAllowedStreamRecordingOrigin('https://synced.novec.online.attacker.test'), false);
   assert.equal(isAllowedStreamRecordingOrigin(null), false);
 });
+
+test('tells users where a started recording will be stored', async () => {
+  const { formatStreamRecordingLocationMessage } = await loadStreamRecording();
+  assert.equal(typeof formatStreamRecordingLocationMessage, 'function', 'recording location helper must exist');
+  assert.equal(
+    formatStreamRecordingLocationMessage('job-123'),
+    'Soubory se ukládají do ~/n8n-stream-downloads/. Po dokončení ve Finderu vyhledej ID úlohy: job-123.',
+  );
+});
