@@ -1,0 +1,39 @@
+name: NOVEC AI Dev - Synced checks
+
+on:
+  pull_request:
+    branches:
+      - release/stable-streaming-v1
+  push:
+    branches:
+      - release/stable-streaming-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: novec-ai-dev-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    name: Test and build Synced
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Run tests
+        run: npm test
+      - name: Production build
+        run: npm run build
