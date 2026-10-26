@@ -1,4 +1,4 @@
-name: NOVEC AI Dev - Synced checks
+name: NOVEC AI Synced Developer - Synced checks
 
 on:
   pull_request:
