@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  env: {
+    NOVEC_BUILD_SHA: process.env.NOVEC_BUILD_SHA || '',
+  },
   async rewrites() {
     return [
       {
