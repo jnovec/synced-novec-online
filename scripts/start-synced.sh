@@ -6,6 +6,8 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 CONFIG_FILE="$PROJECT_DIR/.cloudflared/synced.yml"
 RUNTIME_CONFIG="$PROJECT_DIR/.cloudflared/synced-runtime-$$.yml"
 APP_PID=""
+TUNNEL_PID=""
+STARTUP_TIMEOUT_SECONDS="${MULTISCREEN_STARTUP_TIMEOUT_SECONDS:-240}"
 PORT_START="${MULTISCREEN_PORT_START:-3000}"
 PORT_MAX="${MULTISCREEN_PORT_MAX:-3099}"
 
@@ -71,22 +73,34 @@ awk -v app_url="$APP_URL" '
 ' "$CONFIG_FILE" > "$RUNTIME_CONFIG"
 
 stop_app() {
+  if [[ -n "$TUNNEL_PID" ]] && kill -0 "$TUNNEL_PID" >/dev/null 2>&1; then
+    kill "$TUNNEL_PID"
+    wait "$TUNNEL_PID" 2>/dev/null || true
+  fi
   if [[ -n "$APP_PID" ]] && kill -0 "$APP_PID" >/dev/null 2>&1; then
     kill "$APP_PID"
     wait "$APP_PID" 2>/dev/null || true
   fi
   rm -f "$RUNTIME_CONFIG"
 }
-trap stop_app EXIT INT TERM
+trap stop_app EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [[ ! -f "$PROJECT_DIR/.next/BUILD_ID" ]]; then
   npm run build
 fi
 
-npm run start -- --hostname 127.0.0.1 --port "$APP_PORT" &
+"$PROJECT_DIR/node_modules/.bin/next" start --hostname 127.0.0.1 --port "$APP_PORT" &
 APP_PID=$!
 
-for _ in {1..30}; do
+if [[ ! "$STARTUP_TIMEOUT_SECONDS" =~ ^[0-9]+$ ]] || (( STARTUP_TIMEOUT_SECONDS < 30 || STARTUP_TIMEOUT_SECONDS > 600 )); then
+  echo "Invalid MULTISCREEN_STARTUP_TIMEOUT_SECONDS (expected 30–600 seconds)." >&2
+  exit 1
+fi
+
+echo "Waiting up to ${STARTUP_TIMEOUT_SECONDS}s for Next.js on ${APP_URL}"
+for (( attempt = 1; attempt <= STARTUP_TIMEOUT_SECONDS; attempt += 1 )); do
   if curl --silent --fail --max-time 2 "$APP_URL" >/dev/null 2>&1; then
     break
   fi
@@ -104,4 +118,6 @@ fi
 
 echo "Synced běží lokálně na $APP_URL"
 echo "Spouštím https://synced.novec.online — ukončení: Ctrl+C"
-cloudflared tunnel --config "$RUNTIME_CONFIG" run
+cloudflared tunnel --config "$RUNTIME_CONFIG" run &
+TUNNEL_PID=$!
+wait "$TUNNEL_PID"

@@ -31,6 +31,8 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+      - name: Validate macOS launch script syntax
+        run: bash -n scripts/start-synced.sh
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
       - name: Run tests
