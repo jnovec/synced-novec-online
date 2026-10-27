@@ -31,7 +31,7 @@ export const fetchPublicText = async (rawUrl: string | URL, options: SafeFetchOp
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    let response: Response;
+    let response: Response | undefined;
     try {
       response = await fetch(currentUrl, {
         method: options.method ?? 'GET',
@@ -46,46 +46,37 @@ export const fetchPublicText = async (rawUrl: string | URL, options: SafeFetchOp
         },
         ...(options.body ? { body: options.body } : {}),
       });
-    } catch (error) {
-      clearTimeout(timeout);
-      throw error;
-    }
 
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location');
-      if (!location) {
-        clearTimeout(timeout);
-        throw new Error(`source_http_${response.status}`);
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        if (!location) throw new Error(`source_http_${response.status}`);
+        if (redirects === MAX_REDIRECTS) throw new Error('too_many_redirects');
+        currentUrl = normalizeSourceUrl(new URL(location, currentUrl).toString());
+        continue;
       }
-      if (redirects === MAX_REDIRECTS) {
-        clearTimeout(timeout);
-        throw new Error('too_many_redirects');
+
+      if (!response.ok) throw new Error(`source_http_${response.status}`);
+
+      const declaredLength = Number(response.headers.get('content-length') ?? 0);
+      if (declaredLength > maxBytes) throw new Error('source_too_large');
+
+      const text = await readLimitedText(response, maxBytes);
+      return {
+        text,
+        finalUrl: currentUrl,
+        contentType: response.headers.get('content-type') ?? '',
+        setCookies: readSetCookies(response.headers),
+      };
+    } finally {
+      clearTimeout(timeout);
+      if (response?.body && !response.bodyUsed) {
+        try {
+          await response.body.cancel();
+        } catch {
+          // Cleanup must not replace the original HTTP or validation error.
+        }
       }
-      clearTimeout(timeout);
-      currentUrl = normalizeSourceUrl(new URL(location, currentUrl).toString());
-      continue;
     }
-
-    if (!response.ok) {
-      clearTimeout(timeout);
-      throw new Error(`source_http_${response.status}`);
-    }
-
-    const declaredLength = Number(response.headers.get('content-length') ?? 0);
-    if (declaredLength > maxBytes) {
-      clearTimeout(timeout);
-      throw new Error('source_too_large');
-    }
-
-    const text = await readLimitedText(response, maxBytes);
-    clearTimeout(timeout);
-
-    return {
-      text,
-      finalUrl: currentUrl,
-      contentType: response.headers.get('content-type') ?? '',
-      setCookies: readSetCookies(response.headers),
-    };
   }
 
   throw new Error('too_many_redirects');
@@ -188,15 +179,23 @@ const readLimitedText = async (response: Response, maxBytes: number): Promise<st
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    totalBytes += value.byteLength;
-    if (totalBytes > maxBytes) {
-      await reader.cancel();
-      throw new Error('source_too_large');
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) throw new Error('source_too_large');
+      chunks.push(value);
     }
-    chunks.push(value);
+  } catch (error) {
+    try {
+      await reader.cancel();
+    } catch {
+      // Preserve the read failure if cancelling the reader also fails.
+    }
+    throw error;
+  } finally {
+    reader.releaseLock();
   }
 
   return Buffer.concat(chunks).toString('utf8');
