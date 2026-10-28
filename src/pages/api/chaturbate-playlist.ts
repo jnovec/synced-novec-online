@@ -1,4 +1,4 @@
-import { lookup } from 'node:dns/promises';
+import { fetchPublicText } from '../../lib/safeRemoteFetch';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 const MAX_PLAYLIST_BYTES = 2_000_000;
@@ -13,28 +13,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const url = new URL(playlistUrl);
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('only_http_urls');
 
-    // Follow redirects manually - no automatic redirect-follow to prevent SSRF
-    let currentUrl = url;
-    let content = '';
-    for (let redirectNum = 0; redirectNum < 10; redirectNum += 1) {
-      const response = await fetch(currentUrl.href, {
-        headers: { accept: 'text/plain, application/vnd.apple.mpegurl, audio/mpegurl, */*' },
-        redirect: 'follow',
-      });
-      if (!response.ok) throw new Error(`playlist_http_${response.status}`);
-      const newLocation = response.headers.get('location');
-      if (newLocation) {
-        const redirectUrl = new URL(newLocation, currentUrl.href);
-        // Verify the redirect stays on approved hosts only to prevent SSRF
-        const allowed = ['chaturbate.com', 'mmcdn.com', '.live.mmcdn.com'];
-        const hostOk = allowed.some(h => currentUrl.hostname === h || currentUrl.hostname.endsWith('.' + h));
-        if (!hostOk) throw new Error('playlist_redirect_ssrf_blocked');
-        currentUrl = redirectUrl;
-        continue;
-      }
-      content = (await response.text()).slice(0, MAX_PLAYLIST_BYTES);
-      break;
-    }
+    const { text: content } = await fetchPublicText(url, {
+      maxBytes: MAX_PLAYLIST_BYTES,
+      headers: { accept: 'text/plain, application/vnd.apple.mpegurl, audio/mpegurl, */*' },
+    });
 
     const usernames = extractChaturbateUsernames(content);
 

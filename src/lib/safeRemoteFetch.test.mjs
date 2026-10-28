@@ -134,3 +134,30 @@ test('aborts a stalled request when its timeout elapses', async () => {
   });
   assert.equal(aborted, true);
 });
+
+test('rejects a redirect to localhost before requesting it', async () => {
+  const requested = [];
+  await withFetch(async (url, init) => {
+    requested.push(String(url));
+    assert.equal(init.redirect, 'manual');
+    return new Response(null, { status: 302, headers: { location: 'http://127.0.0.1/admin' } });
+  }, async () => {
+    await assert.rejects(fetchPublicText(PUBLIC_URL), /private_address_not_allowed/);
+  });
+  assert.deepEqual(requested, [PUBLIC_URL]);
+});
+
+test('rejects an initial private address without fetching', async () => {
+  let called = false;
+  await withFetch(async () => { called = true; throw new Error('unexpected_fetch'); }, async () => {
+    await assert.rejects(fetchPublicText('http://127.0.0.1/playlist'), /private_address_not_allowed/);
+  });
+  assert.equal(called, false);
+});
+
+test('accepts a public playlist within the byte limit', async () => {
+  await withFetch(async () => new Response('#EXTM3U\\nhttps://chaturbate.com/example/'), async () => {
+    const result = await fetchPublicText(PUBLIC_URL, { maxBytes: 200 });
+    assert.match(result.text, /chaturbate\\.com\\/example/);
+  });
+});
