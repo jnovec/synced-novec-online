@@ -18,6 +18,7 @@ import { isMyFreeCamsUrl, parseMyFreeCamsListing } from '@/lib/myfreecams';
 import { isYoutubeUrl, parseYoutubeVideos } from '@/lib/youtubeSource';
 import { discoverPornhub, discoverXvideos, isPornhubUrl, isXvideosUrl } from '@/lib/adultVideo';
 import { extractVideoChannels, isDirectMediaUrl, normalizeSourceUrl, sourceCategoryName } from '@/lib/sourceDiscovery';
+import { findStreamSourceAdapter } from '@/lib/streamSourceAdapters';
 import type { DiscoveredChannel } from '@/lib/sourceDiscovery';
 import { assertPublicRemoteUrl, fetchPublicText } from '@/lib/safeRemoteFetch';
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -52,7 +53,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const isChaturbate = isChaturbateUrl(sourceUrl);
     const chaturbateTag = isChaturbate ? requestedTag || '18' : '';
-    const discovered = isBongaCamsUrl(sourceUrl)
+    const adapter = findStreamSourceAdapter(sourceUrl);
+    const adapterRoom = adapter?.discoverRoom ? await adapter.discoverRoom(sourceUrl) : [];
+    const discovered = adapterRoom.length
+      ? { channels: adapterRoom, finalUrl: sourceUrl }
+      : isBongaCamsUrl(sourceUrl)
       ? await discoverBongaCams(sourceUrl)
       : isChaturbate
         ? await discoverChaturbate(sourceUrl, chaturbateTag)

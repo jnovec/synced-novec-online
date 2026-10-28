@@ -11,7 +11,7 @@ import { Accordion, Badge, Box, Button, Divider, Flex, Icon, IconButton, Image, 
 import { DragEvent, MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import ReactPlayer from 'react-player';
 
-const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com', 'cam4.com', 'myfreecams.com', 'youtube.com', 'pornhub.com', 'xvideos.com', 'youporn.com'];
+const supportedSourceWebsites = ['bongacams.com', 'chaturbate.com', 'stripchat.com', 'camsoda.com', 'cam4.com', 'myfreecams.com', 'cams.com', 'streamray.com', 'streamate.com', 'flirt4free.com', 'xlovecam.com', 'dreamcam.com', 'eplay.com', 'sinparty.com', 'youtube.com', 'pornhub.com', 'xvideos.com', 'youporn.com'];
 const searchSourceSites = {
   'Pornhub': (query: string) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(query)}`,
   'xVideos': (query: string) => `https://www.xvideos.com/?k=${encodeURIComponent(query)}`,
