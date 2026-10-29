@@ -3,6 +3,7 @@ import { useControlsContext } from '@/contexts/useControls';
 import { useAudioGamepadVibration } from '@/hooks/useAudioGamepadVibration';
 import { useAudioToyVibration } from '@/hooks/useAudioToyVibration';
 import { applyMediaAudio } from '@/lib/audioControls';
+import { encodeGif } from '@/lib/gif';
 import { isDisplaySlot } from '@/lib/displayMedia';
 import type { VideoSlot } from '@/lib/displayMedia';
 import { findVibrationGamepad, vibrateGamepad } from '@/lib/gamepadVibration';
@@ -126,10 +127,11 @@ export const VideoDisplay = ({
   const [videoReversing, setVideoReversing] = useState(false);
   const videoReversingRef = useRef(false);
   const [loopEnabled, setLoopEnabled] = useState(false);
-  const [loopSeconds, setLoopSeconds] = useState(30);
+  const [loopSeconds, setLoopSeconds] = useState(8);
   const [loopStart, setLoopStart] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [savingGif, setSavingGif] = useState(false);
   const mediaRootRef = useRef<HTMLDivElement>(null);
   const slotPlayerRef = useRef<ReactPlayer>(null);
   const reverseTimerRef = useRef<number | null>(null);
@@ -183,6 +185,38 @@ export const VideoDisplay = ({
   useEffect(() => () => {
     if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
   }, []);
+
+  const saveLoopAsGif = async () => {
+    const video = mediaRootRef.current?.querySelector<HTMLVideoElement>('video');
+    if (!loopEnabled || savingGif) return;
+    if (!video || !video.videoWidth) {
+      toast({ title: 'GIF nelze z tohoto zdroje uložit', description: 'Potřebuji přímý video stream, který dovolí čtení snímků.', status: 'warning', duration: 4500, isClosable: true });
+      return;
+    }
+    setSavingGif(true);
+    try {
+      const width = Math.min(480, video.videoWidth);
+      const height = Math.max(1, Math.round(video.videoHeight * width / video.videoWidth));
+      const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+      const context = canvas.getContext('2d'); if (!context) throw new Error('Canvas není dostupný.');
+      const frames: { pixels: Uint8ClampedArray; width: number; height: number; delay: number }[] = [];
+      const start = Math.max(0, loopStart); const end = Math.min(videoDuration || start + loopSeconds, start + loopSeconds);
+      slotPlayerRef.current?.seekTo(start, 'seconds');
+      for (let time = start; time < end; time += 0.125) {
+        slotPlayerRef.current?.seekTo(time, 'seconds');
+        await new Promise((resolve) => window.setTimeout(resolve, 125));
+        context.drawImage(video, 0, 0, width, height);
+        frames.push({ pixels: context.getImageData(0, 0, width, height).data, width, height, delay: 125 });
+      }
+      const url = URL.createObjectURL(encodeGif(frames));
+      const link = document.createElement('a'); link.href = url; link.download = `synced-loop-${Math.round(start)}s.gif`; link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.warn('GIF export se nepodařil', error);
+      toast({ title: 'GIF se nepodařilo uložit', description: error instanceof Error ? error.message : 'Zkus to prosím znovu.', status: 'error', duration: 5500, isClosable: true });
+    }
+    finally { setSavingGif(false); }
+  };
 
   useEffect(() => {
     if (selectedToyIndex !== null && !toyDevices.some((device) => device.index === selectedToyIndex)) setSelectedToyIndex(null);
@@ -881,10 +915,11 @@ export const VideoDisplay = ({
                     <Button size="xs" colorScheme="blue" onClick={() => setVideoPlaying((playing) => !playing)}>{videoPlaying ? 'Pause' : 'Play'}</Button>
                     <Button size="xs" colorScheme={videoReversing ? 'orange' : 'gray'} onClick={toggleReversePlayback}>Reverse</Button>
                     <Button size="xs" colorScheme={loopEnabled ? 'purple' : 'gray'} onClick={() => { setLoopStart(slotPlayerRef.current?.getCurrentTime() ?? loopStart); setLoopEnabled((enabled) => !enabled); }}>LOOP</Button>
+                    {loopEnabled && <Button size="xs" colorScheme="green" onClick={() => void saveLoopAsGif()} isLoading={savingGif}>Uložit GIF</Button>}
                     <Input aria-label="Délka fullscreen smyčky" value={loopSeconds} onChange={(event) => setLoopSeconds(Math.max(1, Number(event.target.value) || 1))} type="number" min={1} max={3600} size="xs" w="58px" bg="gray.900" color="white" textColor="white" sx={{ WebkitTextFillColor: 'white' }} />
-                    <Button size="xs" onClick={() => setLoopStart((start) => Math.max(0, start - 0.5))}>&lt;</Button>
-                    <Text color="gray.300" fontSize="10px" minW="42px" textAlign="center">{loopStart.toFixed(1)}s</Text>
-                    <Button size="xs" onClick={() => setLoopStart((start) => Math.min(Math.max(0, videoDuration - loopSeconds), start + 0.5))}>&gt;</Button>
+                    <Button size="xs" aria-label="Zkrátit loop" onClick={() => setLoopSeconds((seconds) => Math.max(1, seconds - 1))}>−</Button>
+                    <Text color="gray.300" fontSize="10px" minW="42px" textAlign="center">{loopSeconds}s</Text>
+                    <Button size="xs" aria-label="Prodloužit loop" onClick={() => setLoopSeconds((seconds) => Math.min(3600, videoDuration > 0 ? Math.max(1, videoDuration - loopStart) : seconds + 1))}>+</Button>
                     {videoDuration > 0 && Number.isFinite(videoDuration) && (
                       <Flex alignItems="center" gap="1" w="full" minW="220px" px="1">
                         <Text color="gray.300" fontSize="10px" minW="34px" textAlign="right">
