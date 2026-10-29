@@ -7,6 +7,7 @@ import { encodeGif } from '@/lib/gif';
 import { isDisplaySlot } from '@/lib/displayMedia';
 import type { VideoSlot } from '@/lib/displayMedia';
 import { findVibrationGamepad, vibrateGamepad } from '@/lib/gamepadVibration';
+import { isHlsPlaybackUrl } from '@/lib/playbackUrl';
 import { normalizeRemoteVideo, resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { formatStreamRecordingLocationMessage } from '@/lib/streamRecording';
 import { CloseIcon, RepeatIcon } from '@chakra-ui/icons';
@@ -50,7 +51,6 @@ const PLAYBACK_RETRY_COOLDOWN_MS = 15_000;
 const SLOT_AVAILABILITY_EVENT = 'synced:slot-availability';
 const SLOT_LAYOUT_RELOAD_EVENT = 'synced:slot-layout-reload';
 const PREVIEW_LOADING_EVENT = 'synced:preview-loading';
-const isHlsPlaybackUrl = (url: string) => /\.m3u8(?:$|[?#])/i.test(url);
 
 const waitFor = (milliseconds: number) => new Promise<void>((resolve) => {
   window.setTimeout(resolve, milliseconds);
@@ -831,7 +831,7 @@ export const VideoDisplay = ({
                 volume={audio.volume}
                 config={{
                   file: {
-                    forceHLS: true,
+                    forceHLS: isHlsPlaybackUrl(resolvedUrl),
                     attributes: {
                       crossOrigin: 'true',
                     },
