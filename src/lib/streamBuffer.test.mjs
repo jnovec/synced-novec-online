@@ -12,8 +12,8 @@ test('allows a short stream when the remaining duration is buffered', () => {
   assert.equal(startupBufferReady(ranges(), 0, 2), false);
 });
 
-test('DVR uses a contiguous window and caps history at a minute', () => {
- assert.deepEqual(bufferWindow(ranges([12, 15], [40, 120]), 115), {start: 60, end: 120});
+test('DVR uses a contiguous window and caps history at two minutes', () => {
+ assert.deepEqual(bufferWindow(ranges([12, 15], [40, 180]), 175), {start: 60, end: 180});
  assert.deepEqual(bufferWindow(ranges([12, 15], [40, 55]), 0), {start: 40, end: 55});
  assert.equal(bufferWindow(ranges(), 0), null);
 });

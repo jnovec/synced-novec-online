@@ -4,7 +4,7 @@ export class FragmentCache {
   private bytes = 0;
   private limit: number;
   private ttl: number;
-  constructor(limit = STREAM_CACHE_BYTES, ttl = 60_000) { this.limit = limit; this.ttl = ttl; }
+  constructor(limit = STREAM_CACHE_BYTES, ttl = 120_000) { this.limit = limit; this.ttl = ttl; }
   private drop(key: string) {
     const entry = this.entries.get(key);
     if (entry) this.bytes -= entry.data.byteLength;

@@ -20,7 +20,7 @@ export function bufferWindow(ranges: TimeRanges, position: number) {
     if (position >= ranges.start(j) - 0.1 && position <= ranges.end(j)) { i = j; break; }
   }
   const end = ranges.end(i);
-  return { start: Math.max(ranges.start(i), end - 60), end };
+  return { start: Math.max(ranges.start(i), end - 120), end };
 }
 
 export const isCacheOnlySlot = (fullscreen: number | null, index: number) => fullscreen !== null && fullscreen !== index;
