@@ -48,10 +48,7 @@ const runNextResolution = () => {
   }
 };
 
-const resolveRemoteStreamUrlInternal = async (pageUrl: string, playbackUrl?: string): Promise<string | null> => {
-  if (playbackUrl && isDirectMediaUrl(playbackUrl)) return proxyPornhubHls(playbackUrl) ?? playbackUrl;
-  if (isDirectMediaUrl(pageUrl)) return pageUrl;
-
+const resolveRemoteStreamUrlInternal = async (pageUrl: string): Promise<string | null> => {
   if (isChaturbatePage(pageUrl)) return resolveChaturbateStreamUrl(pageUrl);
 
   try {
@@ -73,7 +70,11 @@ const resolveRemoteStreamUrlInternal = async (pageUrl: string, playbackUrl?: str
 };
 
 export const resolveRemoteStreamUrl = (pageUrl: string, playbackUrl?: string): Promise<string | null> => {
-  const key = `${pageUrl}\n${playbackUrl ?? ''}`;
+  // Direct media must not wait behind network discovery.
+  if (playbackUrl && isDirectMediaUrl(playbackUrl)) return Promise.resolve(proxyPornhubHls(playbackUrl) ?? playbackUrl);
+  if (isDirectMediaUrl(pageUrl)) return Promise.resolve(pageUrl);
+
+  const key = pageUrl;
   const now = Date.now();
   for (const [cacheKey, value] of resolvedUrlCache) if (value.until <= now) resolvedUrlCache.delete(cacheKey);
   for (const [cooldownKey, until] of failedResolutionCooldowns) if (until <= now) failedResolutionCooldowns.delete(cooldownKey);
@@ -93,7 +94,7 @@ export const resolveRemoteStreamUrl = (pageUrl: string, playbackUrl?: string): P
 
   const promise = new Promise<string | null>((resolve) => {
     resolutionQueue.push({
-      task: () => resolveRemoteStreamUrlInternal(pageUrl, playbackUrl),
+      task: () => resolveRemoteStreamUrlInternal(pageUrl),
       resolve,
     });
     runNextResolution();
