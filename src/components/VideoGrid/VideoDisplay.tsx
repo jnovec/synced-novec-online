@@ -7,6 +7,7 @@ import { encodeGif } from '@/lib/gif';
 import { isDisplaySlot } from '@/lib/displayMedia';
 import type { VideoSlot } from '@/lib/displayMedia';
 import { findVibrationGamepad, vibrateGamepad } from '@/lib/gamepadVibration';
+import { startupBufferReady } from '@/lib/streamBuffer';
 import { isHlsPlaybackUrl } from '@/lib/playbackUrl';
 import { normalizeRemoteVideo, resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { formatStreamRecordingLocationMessage } from '@/lib/streamRecording';
@@ -365,6 +366,21 @@ export const VideoDisplay = ({
   useEffect(() => {
     setLastFrameUrl(null);
   }, [slot?.playbackUrl, slot?.url]);
+
+  const [bufferedUrl, setBufferedUrl] = useState<string | null>(null);
+  const isWarmingHls = !!resolvedUrl && isHlsPlaybackUrl(resolvedUrl) && bufferedUrl !== resolvedUrl;
+  useEffect(() => {
+    setBufferedUrl(null);
+    if (!resolvedUrl || !isHlsPlaybackUrl(resolvedUrl)) return;
+    const timer = window.setInterval(() => {
+      const media = slotPlayerRef.current?.getInternalPlayer();
+      if (media instanceof HTMLMediaElement && startupBufferReady(media.buffered, media.currentTime, media.duration)) {
+        setBufferedUrl(resolvedUrl);
+        window.clearInterval(timer);
+      }
+    }, 200);
+    return () => window.clearInterval(timer);
+  }, [resolvedUrl]);
 
   const handleClick = () => {
     if (slot) {
@@ -826,7 +842,7 @@ export const VideoDisplay = ({
                 width="100%"
                 height="100%"
                 url={resolvedUrl}
-                playing={videoPlaying && !videoReversing}
+                playing={!isWarmingHls && videoPlaying && !videoReversing}
                 muted={audio.muted}
                 volume={audio.volume}
                 config={{
@@ -844,8 +860,8 @@ export const VideoDisplay = ({
                       abrEwmaDefaultEstimate: isFullscreenActive ? 8_000_000 : (isBusyGrid ? 1_250_000 : 2_000_000),
                       maxBufferLength: isFullscreenActive ? 30 : (isBusyGrid ? 16 : 20),
                       maxMaxBufferLength: isFullscreenActive ? 90 : (isBusyGrid ? 32 : 45),
-                      backBufferLength: 10,
-                      liveBackBufferLength: 10,
+                      backBufferLength: 60,
+                      liveBackBufferLength: 60,
                       manifestLoadingMaxRetry: 4,
                       levelLoadingMaxRetry: 4,
                       fragLoadingMaxRetry: 6,
@@ -882,8 +898,14 @@ export const VideoDisplay = ({
                     setVideoPlaying(false);
                   }
                 }}
-                style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none', visibility: isWarmingHls ? 'hidden' : undefined }}
               />
+              {isWarmingHls && (
+                <Flex position="absolute" inset={0} align="center" justify="center" direction="column" gap="2" color="gray.400" bg="black" pointerEvents="none">
+                  <Spinner size="sm" />
+                  <Text fontSize="xs">Přednačítám stream…</Text>
+                </Flex>
+              )}
               {isBuffering && (
                 <Flex position="absolute" inset={0} alignItems="center" justifyContent="center" pointerEvents="none" bg="blackAlpha.300">
                   <Flex alignItems="center" gap="2" px="3" py="2" borderRadius="md" bg="blackAlpha.700" color="gray.200">
