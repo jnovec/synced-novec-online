@@ -1,3 +1,4 @@
+import { CachedFragmentLoader } from '@/lib/fragmentCache';
 import { useButtplugContext } from '@/contexts/useButtplug';
 import { useControlsContext } from '@/contexts/useControls';
 import { useAudioGamepadVibration } from '@/hooks/useAudioGamepadVibration';
@@ -391,6 +392,7 @@ export const VideoDisplay = ({
     setWaitingForBuffer(false);
     if (!resolvedUrl || !isHlsPlaybackUrl(resolvedUrl)) return;
     let started = false;
+    let previewEnd = 0;
     const timer = window.setInterval(() => {
       const media = slotPlayerRef.current?.getInternalPlayer();
       if (!(media instanceof HTMLMediaElement)) return;
@@ -398,7 +400,13 @@ export const VideoDisplay = ({
       if (!range) return;
       setDvr((previous) => previous?.start === range.start && previous.end === range.end ? previous : range);
       if (!started) {
-        if (!startupBufferReady(media.buffered, range.start, media.duration)) return;
+        if (!startupBufferReady(media.buffered, range.start, media.duration)) {
+          if (!media.seeking && range.end - previewEnd >= 0.5) {
+            previewEnd = range.end;
+            media.currentTime = Math.max(range.start, range.end - 0.25);
+          }
+          return;
+        }
         media.currentTime = range.start;
         setLoopStart(range.start);
         setVideoCurrentTime(range.start);
@@ -890,6 +898,7 @@ export const VideoDisplay = ({
                     hlsOptions: {
                       lowLatencyMode: false,
                       startFragPrefetch: true,
+                      fLoader: CachedFragmentLoader,
                       liveSyncDurationCount: 3,
                       liveMaxLatencyDurationCount: 10,
                       startLevel: -1,
@@ -937,15 +946,15 @@ export const VideoDisplay = ({
                     setVideoPlaying(false);
                   }
                 }}
-                style={{ position: 'absolute', inset: 0, pointerEvents: 'none', visibility: isWarmingHls ? 'hidden' : undefined }}
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
               />
               {isWarmingHls && (
-                <Flex position="absolute" inset={0} align="center" justify="center" direction="column" gap="2" color="gray.400" bg="black" pointerEvents="none">
+                <Flex position="absolute" bottom="3" left="3" align="center" gap="2" px="3" py="2" borderRadius="md" color="gray.200" bg="blackAlpha.700" pointerEvents="none">
                   <Spinner size="sm" />
                   <Text fontSize="xs">Přednačítám stream…</Text>
                 </Flex>
               )}
-              {isBuffering && (
+              {isBuffering && !isWarmingHls && (
                 <Flex position="absolute" inset={0} alignItems="center" justifyContent="center" pointerEvents="none" bg="blackAlpha.300">
                   <Flex alignItems="center" gap="2" px="3" py="2" borderRadius="md" bg="blackAlpha.700" color="gray.200">
                     <Spinner size="sm" />
