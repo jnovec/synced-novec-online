@@ -22,3 +22,5 @@ export function bufferWindow(ranges: TimeRanges, position: number) {
   const end = ranges.end(i);
   return { start: Math.max(ranges.start(i), end - 60), end };
 }
+
+export const isCacheOnlySlot = (fullscreen: number | null, index: number) => fullscreen !== null && fullscreen !== index;

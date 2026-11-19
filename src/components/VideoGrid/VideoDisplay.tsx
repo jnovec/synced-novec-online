@@ -61,6 +61,7 @@ interface VideoDisplayProps {
   index: number;
   onOpenFullscreen: (index: number | null) => void;
   isFullscreenActive: boolean;
+  cacheOnly: boolean;
   isSelected: boolean;
   onToggleSelected: (index: number) => void;
   gridRowStart: string;
@@ -74,6 +75,7 @@ export const VideoDisplay = ({
   index,
   onOpenFullscreen,
   isFullscreenActive,
+  cacheOnly,
   isSelected,
   onToggleSelected,
   gridRowStart,
@@ -363,7 +365,7 @@ export const VideoDisplay = ({
   };
 
   useEffect(() => {
-    if (!resolvedUrl || isDisplay) return;
+    if (!resolvedUrl || isDisplay || cacheOnly) return;
 
     lastPlaybackProgressRef.current = Date.now();
     const watchdog = window.setInterval(() => {
@@ -372,7 +374,7 @@ export const VideoDisplay = ({
     }, PLAYBACK_WATCH_INTERVAL_MS);
 
     return () => window.clearInterval(watchdog);
-  }, [isDisplay, resolvedUrl]);
+  }, [isDisplay, resolvedUrl, cacheOnly]);
 
   useEffect(() => {
     setLastFrameUrl(null);
@@ -774,6 +776,7 @@ export const VideoDisplay = ({
                   : 'whiteAlpha.100'
         }
         overflow="hidden"
+        visibility={cacheOnly ? "hidden" : "visible"}
         pos="relative"
         position={isFullscreenActive ? 'fixed' : 'relative'}
         inset={isFullscreenActive ? '0' : undefined}
@@ -842,7 +845,7 @@ export const VideoDisplay = ({
         </Checkbox>
         {slot ? (
           <Box ref={mediaRootRef} position="absolute" inset={0} opacity={1} pointerEvents="auto">
-            {isDisplay && displayStream ? (
+            {isDisplay && displayStream && !cacheOnly ? (
               <DisplayMediaPlayer
                 stream={displayStream}
                 muted={audio.muted}
@@ -874,7 +877,7 @@ export const VideoDisplay = ({
                 width="100%"
                 height="100%"
                 url={resolvedUrl}
-                playing={!isWarmingHls && !waitingForBuffer && videoPlaying && !videoReversing && !savingGif}
+                playing={!cacheOnly && !isWarmingHls && !waitingForBuffer && videoPlaying && !videoReversing && !savingGif}
                 muted={audio.muted}
                 volume={audio.volume}
                 config={{
@@ -882,6 +885,7 @@ export const VideoDisplay = ({
                     forceHLS: isHlsPlaybackUrl(resolvedUrl),
                     attributes: {
                       crossOrigin: 'true',
+                      preload: 'auto',
                     },
                     hlsOptions: {
                       lowLatencyMode: false,
@@ -913,7 +917,7 @@ export const VideoDisplay = ({
                 onBufferEnd={() => { setIsBuffering(false); setStreamStatus('live'); }}
                 onDuration={(duration) => setVideoDuration(Number.isFinite(duration) ? duration : 0)}
                 onProgress={(state) => {
-                  if (isWarmingHls || savingGif || videoReversingRef.current) return;
+                  if (cacheOnly || isWarmingHls || savingGif || videoReversingRef.current) return;
                   setIsBuffering(false);
                   setStreamStatus('live');
                   handlePlayerProgress();
@@ -1015,7 +1019,7 @@ export const VideoDisplay = ({
                 </Portal>
               )}
               </>
-            ) : slot && shouldEmbedRemotePage(slot.url) ? (
+            ) : !cacheOnly && slot && shouldEmbedRemotePage(slot.url) ? (
               <Box
                 as="iframe"
                 title={slot.name}

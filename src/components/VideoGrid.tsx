@@ -1,3 +1,4 @@
+import { isCacheOnlySlot } from '@/lib/streamBuffer';
 import { useControlsContext } from '@/contexts/useControls';
 import { useChannelsContext } from '@/contexts/useChannels';
 import { Box, Button, Flex, Grid, Image, Link, Text, IconButton, useToast } from '@chakra-ui/react';
@@ -321,6 +322,7 @@ export const VideoGrid = () => {
               index={i}
               onOpenFullscreen={(index) => setFullscreenIndex(index)}
               isFullscreenActive={fullscreenIndex === i}
+              cacheOnly={isCacheOnlySlot(fullscreenIndex, i)}
               isSelected={selectedSlots.includes(i)}
               onToggleSelected={toggleSelectedSlot}
               gridRowStart={placement.rowStart}
