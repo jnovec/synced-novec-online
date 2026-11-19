@@ -71,6 +71,7 @@ const decodeLzw = (data, minCodeSize, expectedLength) => {
 const decodeGifFrames = (bytes) => {
   let offset = 13;
   const packed = bytes[10];
+  const globalPalette = bytes.slice(offset, offset + 3 * (1 << ((packed & 7) + 1)));
   if (packed & 0x80) offset += 3 * (1 << ((packed & 7) + 1));
   const frames = [];
   while (offset < bytes.length) {
@@ -90,7 +91,12 @@ const decodeGifFrames = (bytes) => {
     const height = bytes[offset + 6] | (bytes[offset + 7] << 8);
     const imagePacked = bytes[offset + 8];
     offset += 9;
-    if (imagePacked & 0x80) offset += 3 * (1 << ((imagePacked & 7) + 1));
+    let palette = globalPalette;
+    if (imagePacked & 0x80) {
+      const size = 3 * (1 << ((imagePacked & 7) + 1));
+      palette = bytes.slice(offset, offset + size);
+      offset += size;
+    }
     const minCodeSize = bytes[offset++];
     const compressed = [];
     while (offset < bytes.length) {
@@ -98,7 +104,11 @@ const decodeGifFrames = (bytes) => {
       if (blockLength === 0) break;
       for (let i = 0; i < blockLength; i += 1) compressed.push(bytes[offset++]);
     }
-    frames.push(decodeLzw(Uint8Array.from(compressed), minCodeSize, width * height));
+    const indices = decodeLzw(Uint8Array.from(compressed), minCodeSize, width * height);
+    frames.push(indices.reduce((rgb, index, pixel) => {
+      rgb.set(palette.slice(index * 3, index * 3 + 3), pixel * 3);
+      return rgb;
+    }, new Uint8Array(width * height * 3)));
   }
   return frames;
 };
@@ -112,6 +122,11 @@ test('encodes multi-frame GIFs with LZW code-width changes that decode to the so
   const frames = decodeGifFrames(new Uint8Array(await blob.arrayBuffer()));
 
   assert.equal(frames.length, 2);
-  assert.deepEqual(frames[0], first.expected);
-  assert.deepEqual(frames[1], second.expected);
+  for (const [index, source] of [first, second].entries()) {
+    for (let pixel = 0; pixel < width * height; pixel++) {
+      for (let channel = 0; channel < 3; channel++) {
+        assert.ok(Math.abs(frames[index][pixel * 3 + channel] - source.frame.pixels[pixel * 4 + channel]) <= 8, 'decoded color must match source within palette quantization');
+      }
+    }
+  }
 });
