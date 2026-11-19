@@ -12,3 +12,13 @@ export function startupBufferReady(ranges: TimeRanges, position: number, duratio
   const remaining = duration - position;
   return ahead >= 4 || (Number.isFinite(remaining) && ahead > 0 && ahead >= remaining - 0.1);
 }
+
+export function bufferWindow(ranges: TimeRanges, position: number) {
+  if (!ranges.length) return null;
+  let i = ranges.length - 1;
+  for (let j = 0; j < ranges.length; j++) {
+    if (position >= ranges.start(j) - 0.1 && position <= ranges.end(j)) { i = j; break; }
+  }
+  const end = ranges.end(i);
+  return { start: Math.max(ranges.start(i), end - 60), end };
+}

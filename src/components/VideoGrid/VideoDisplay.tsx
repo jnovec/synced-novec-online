@@ -7,7 +7,7 @@ import { encodeGif } from '@/lib/gif';
 import { isDisplaySlot } from '@/lib/displayMedia';
 import type { VideoSlot } from '@/lib/displayMedia';
 import { findVibrationGamepad, vibrateGamepad } from '@/lib/gamepadVibration';
-import { startupBufferReady } from '@/lib/streamBuffer';
+import { bufferedAhead, bufferWindow, startupBufferReady } from '@/lib/streamBuffer';
 import { isHlsPlaybackUrl } from '@/lib/playbackUrl';
 import { normalizeRemoteVideo, resolveRemoteStreamUrl, shouldEmbedRemotePage } from '@/lib/remoteVideo';
 import { formatStreamRecordingLocationMessage } from '@/lib/streamRecording';
@@ -194,6 +194,10 @@ export const VideoDisplay = ({
       toast({ title: 'GIF nelze z tohoto zdroje uložit', description: 'Potřebuji přímý video stream, který dovolí čtení snímků.', status: 'warning', duration: 4500, isClosable: true });
       return;
     }
+    const cached = resolvedUrl && isHlsPlaybackUrl(resolvedUrl) ? bufferWindow(video.buffered, loopStart) : null;
+    if (resolvedUrl && isHlsPlaybackUrl(resolvedUrl) && !cached) return;
+    const originalTime = video.currentTime;
+    video.pause();
     setSavingGif(true);
     try {
       const width = Math.min(480, video.videoWidth);
@@ -201,11 +205,17 @@ export const VideoDisplay = ({
       const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
       const context = canvas.getContext('2d'); if (!context) throw new Error('Canvas není dostupný.');
       const frames: { pixels: Uint8ClampedArray; width: number; height: number; delay: number }[] = [];
-      const start = Math.max(0, loopStart); const end = Math.min(videoDuration || start + loopSeconds, start + loopSeconds);
-      slotPlayerRef.current?.seekTo(start, 'seconds');
+      const endLimit = cached?.end ?? (videoDuration || loopStart + loopSeconds);
+      const start = Math.max(cached?.start ?? 0, Math.min(loopStart, endLimit - Math.min(loopSeconds, endLimit - (cached?.start ?? 0))));
+      const end = Math.min(endLimit, start + loopSeconds, start + 60);
+      if (end <= start) throw new Error('Vybraný úsek ještě není v bufferu.');
       for (let time = start; time < end; time += 0.125) {
-        slotPlayerRef.current?.seekTo(time, 'seconds');
-        await new Promise((resolve) => window.setTimeout(resolve, 125));
+        if (Math.abs(video.currentTime - time) > 0.001 || video.seeking) await new Promise<void>((resolve, reject) => {
+          const ready = () => { window.clearTimeout(timer); resolve(); };
+          const timer = window.setTimeout(() => { video.removeEventListener('seeked', ready); reject(new Error('Snímek se nepodařilo načíst.')); }, 4000);
+          video.addEventListener('seeked', ready, { once: true });
+          video.currentTime = time;
+        });
         context.drawImage(video, 0, 0, width, height);
         frames.push({ pixels: context.getImageData(0, 0, width, height).data, width, height, delay: 125 });
       }
@@ -216,7 +226,7 @@ export const VideoDisplay = ({
       console.warn('GIF export se nepodařil', error);
       toast({ title: 'GIF se nepodařilo uložit', description: error instanceof Error ? error.message : 'Zkus to prosím znovu.', status: 'error', duration: 5500, isClosable: true });
     }
-    finally { setSavingGif(false); }
+    finally { if (video.isConnected) video.currentTime = originalTime; setSavingGif(false); }
   };
 
   useEffect(() => {
@@ -357,6 +367,7 @@ export const VideoDisplay = ({
 
     lastPlaybackProgressRef.current = Date.now();
     const watchdog = window.setInterval(() => {
+      if (videoReversingRef.current) return;
       if (Date.now() - lastPlaybackProgressRef.current >= PLAYBACK_STALL_MS) refreshStalledStream();
     }, PLAYBACK_WATCH_INTERVAL_MS);
 
@@ -368,16 +379,34 @@ export const VideoDisplay = ({
   }, [slot?.playbackUrl, slot?.url]);
 
   const [bufferedUrl, setBufferedUrl] = useState<string | null>(null);
-  const isWarmingHls = !!resolvedUrl && isHlsPlaybackUrl(resolvedUrl) && bufferedUrl !== resolvedUrl;
+  const [dvr, setDvr] = useState<{ start: number; end: number } | null>(null);
+  const [waitingForBuffer, setWaitingForBuffer] = useState(false);
+  const liveHls = !!resolvedUrl && isHlsPlaybackUrl(resolvedUrl);
+  const isWarmingHls = liveHls && bufferedUrl !== resolvedUrl;
   useEffect(() => {
     setBufferedUrl(null);
+    setDvr(null);
+    setWaitingForBuffer(false);
     if (!resolvedUrl || !isHlsPlaybackUrl(resolvedUrl)) return;
+    let started = false;
     const timer = window.setInterval(() => {
       const media = slotPlayerRef.current?.getInternalPlayer();
-      if (media instanceof HTMLMediaElement && startupBufferReady(media.buffered, media.currentTime, media.duration)) {
+      if (!(media instanceof HTMLMediaElement)) return;
+      const range = bufferWindow(media.buffered, media.currentTime);
+      if (!range) return;
+      setDvr((previous) => previous?.start === range.start && previous.end === range.end ? previous : range);
+      if (!started) {
+        if (!startupBufferReady(media.buffered, range.start, media.duration)) return;
+        media.currentTime = range.start;
+        setLoopStart(range.start);
+        setVideoCurrentTime(range.start);
+        started = true;
         setBufferedUrl(resolvedUrl);
-        window.clearInterval(timer);
+        return;
       }
+      const ahead = bufferedAhead(media.buffered, media.currentTime);
+      const nearEnd = Number.isFinite(media.duration) && media.duration - media.currentTime < 4;
+      setWaitingForBuffer((waiting) => !nearEnd && (waiting ? ahead < 4 : ahead < 0.4));
     }, 200);
     return () => window.clearInterval(timer);
   }, [resolvedUrl]);
@@ -450,22 +479,25 @@ export const VideoDisplay = ({
     videoReversingRef.current = true;
     setVideoReversing(true);
     setVideoPlaying(false);
+    const media = slotPlayerRef.current?.getInternalPlayer() as HTMLMediaElement | undefined;
     const startTime = videoCurrentTime;
     reversePositionRef.current = Math.max(0, startTime);
     setVideoCurrentTime(reversePositionRef.current);
     if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
     reverseTimerRef.current = window.setInterval(() => {
       const current = reversePositionRef.current ?? 0;
-      const next = Math.max(0, current - (1 / 30));
+      if (media?.seeking) return;
+      const floor = liveHls && media ? bufferWindow(media.buffered, current)?.start ?? current : 0;
+      const next = Math.max(floor, current - 0.1);
       reversePositionRef.current = next;
       slotPlayerRef.current?.seekTo(next, 'seconds');
       setVideoCurrentTime(next);
-      if (next <= 0) {
+      if (next <= floor) {
         if (reverseTimerRef.current !== null) window.clearInterval(reverseTimerRef.current);
         reverseTimerRef.current = null;
         setVideoPlaying(false);
       }
-    }, 33);
+    }, 100);
   };
 
   const placeRemoteVideo = (video: VideoSlot, fromManualDialog = false) => {
@@ -842,7 +874,7 @@ export const VideoDisplay = ({
                 width="100%"
                 height="100%"
                 url={resolvedUrl}
-                playing={!isWarmingHls && videoPlaying && !videoReversing}
+                playing={!isWarmingHls && !waitingForBuffer && videoPlaying && !videoReversing && !savingGif}
                 muted={audio.muted}
                 volume={audio.volume}
                 config={{
@@ -853,6 +885,7 @@ export const VideoDisplay = ({
                     },
                     hlsOptions: {
                       lowLatencyMode: false,
+                      startFragPrefetch: true,
                       liveSyncDurationCount: 3,
                       liveMaxLatencyDurationCount: 10,
                       startLevel: -1,
@@ -880,15 +913,17 @@ export const VideoDisplay = ({
                 onBufferEnd={() => { setIsBuffering(false); setStreamStatus('live'); }}
                 onDuration={(duration) => setVideoDuration(Number.isFinite(duration) ? duration : 0)}
                 onProgress={(state) => {
+                  if (isWarmingHls || savingGif || videoReversingRef.current) return;
                   setIsBuffering(false);
                   setStreamStatus('live');
                   handlePlayerProgress();
                   if (!videoReversingRef.current) {
                     setVideoCurrentTime(Number.isFinite(state.playedSeconds) ? state.playedSeconds : 0);
                   }
-                  if (!loopEnabled || videoDuration <= 0) return;
-                  const end = Math.min(videoDuration, loopStart + loopSeconds);
-                  if (state.playedSeconds >= end || state.playedSeconds < loopStart) slotPlayerRef.current?.seekTo(loopStart, 'seconds');
+                  if (!loopEnabled || (liveHls ? !dvr : videoDuration <= 0)) return;
+                  const start = Math.max(dvr?.start ?? 0, loopStart);
+                  const end = Math.min(dvr?.end ?? videoDuration, start + loopSeconds);
+                  if (end > start && (state.playedSeconds >= end || state.playedSeconds < start)) slotPlayerRef.current?.seekTo(start, 'seconds');
                 }}
                 onEnded={() => {
                   if (loopEnabled) {
@@ -942,16 +977,16 @@ export const VideoDisplay = ({
                     <Button size="xs" aria-label="Zkrátit loop" onClick={() => setLoopSeconds((seconds) => Math.max(1, seconds - 1))}>−</Button>
                     <Text color="gray.300" fontSize="10px" minW="42px" textAlign="center">{loopSeconds}s</Text>
                     <Button size="xs" aria-label="Prodloužit loop" onClick={() => setLoopSeconds((seconds) => Math.min(3600, videoDuration > 0 ? Math.max(1, videoDuration - loopStart) : seconds + 1))}>+</Button>
-                    {videoDuration > 0 && Number.isFinite(videoDuration) && (
+                    {(dvr ? dvr.end > dvr.start : videoDuration > 0 && Number.isFinite(videoDuration)) && (
                       <Flex alignItems="center" gap="1" w="full" minW="220px" px="1">
                         <Text color="gray.300" fontSize="10px" minW="34px" textAlign="right">
                           {Math.floor(videoCurrentTime / 60)}:{String(Math.floor(videoCurrentTime % 60)).padStart(2, '0')}
                         </Text>
                         <Slider
                           aria-label="Posun videa"
-                          value={Math.min(videoCurrentTime, videoDuration)}
-                          min={0}
-                          max={videoDuration}
+                          value={Math.max(dvr?.start ?? 0, Math.min(videoCurrentTime, dvr?.end ?? videoDuration))}
+                          min={dvr?.start ?? 0}
+                          max={dvr?.end ?? videoDuration}
                           step={0.1}
                           onKeyDownCapture={(event) => {
                             if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
